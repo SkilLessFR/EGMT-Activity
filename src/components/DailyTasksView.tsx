@@ -25,6 +25,7 @@ import {
 } from "../api/client";
 import {
   generateDailyOccurrences,
+  getShiftStartTime,
   groupDailyOccurrences,
 } from "../domain/dailySchedule";
 import {
@@ -99,6 +100,8 @@ function TaskFormModal({
   const [onceDate, setOnceDate] = useState(defaultDate);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [times, setTimes] = useState<string[]>(["08:00"]);
+  const [timeMode, setTimeMode] = useState<"specific" | "shiftWindow">("specific");
+  const [dueUntil, setDueUntil] = useState("10:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -123,6 +126,8 @@ function TaskFormModal({
           : [1, 2, 3, 4, 5]
       );
       setTimes(editingTask.times.length > 0 ? [...editingTask.times] : ["08:00"]);
+      setTimeMode(editingTask.dueUntil ? "shiftWindow" : "specific");
+      setDueUntil(editingTask.dueUntil ?? "10:00");
       setEnabled(editingTask.enabled);
     } else {
       setTitle("");
@@ -132,6 +137,8 @@ function TaskFormModal({
       setOnceDate(defaultDate);
       setDaysOfWeek([1, 2, 3, 4, 5]);
       setTimes(["08:00"]);
+      setTimeMode("specific");
+      setDueUntil("10:00");
       setEnabled(true);
     }
   }, [isOpen, editingTask, defaultDate]);
@@ -173,11 +180,18 @@ function TaskFormModal({
       setError("Valid date (YYYY-MM-DD) is required for one-time schedule.");
       return;
     }
-    const cleanedTimes = Array.from(
-      new Set(times.filter((t) => /^\d{2}:\d{2}$/.test(t)))
-    ).sort();
+    const shiftStart = getShiftStartTime(targetShift);
+    const cleanedTimes =
+      timeMode === "shiftWindow"
+        ? [shiftStart]
+        : Array.from(new Set(times.filter((t) => /^\d{2}:\d{2}$/.test(t)))).sort();
+
     if (cleanedTimes.length === 0) {
       setError("At least one scheduled time (HH:MM) is required.");
+      return;
+    }
+    if (timeMode === "shiftWindow" && !/^\d{2}:\d{2}$/.test(dueUntil)) {
+      setError("Valid deadline time (HH:MM) is required.");
       return;
     }
 
@@ -192,7 +206,7 @@ function TaskFormModal({
 
     setSaving(true);
     try {
-      const payload = {
+      const basePayload = {
         title: title.trim(),
         description: description.trim() || undefined,
         targetShift,
@@ -201,11 +215,17 @@ function TaskFormModal({
         enabled,
       };
       if (editingTask) {
-        await updateDailyTask(editingTask.id, payload);
-        showToast({ tone: "success", title: "Task updated", description: payload.title });
+        await updateDailyTask(editingTask.id, {
+          ...basePayload,
+          dueUntil: timeMode === "shiftWindow" ? dueUntil : null,
+        });
+        showToast({ tone: "success", title: "Task updated", description: basePayload.title });
       } else {
-        await createDailyTask(payload);
-        showToast({ tone: "success", title: "Task created", description: payload.title });
+        await createDailyTask({
+          ...basePayload,
+          ...(timeMode === "shiftWindow" ? { dueUntil } : {}),
+        });
+        showToast({ tone: "success", title: "Task created", description: basePayload.title });
       }
       onSaved();
       onClose();
@@ -352,39 +372,84 @@ function TaskFormModal({
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Scheduled Times{" "}
-              <span className="text-zinc-500">(each time creates an independent occurrence)</span>
+              Scheduled Time
             </label>
-            <div className="flex flex-wrap items-center gap-2">
-              {times.map((t, index) => (
-                <div
-                  key={index}
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-surface-input pr-1.5"
-                >
+            <div className="mb-2.5 grid grid-cols-2 gap-1 rounded-lg bg-white/[0.04] p-1">
+              <button
+                type="button"
+                onClick={() => setTimeMode("specific")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  timeMode === "specific"
+                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Specific Times
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimeMode("shiftWindow")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  timeMode === "shiftWindow"
+                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Shift Start → Until
+              </button>
+            </div>
+
+            {timeMode === "specific" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {times.map((t, index) => (
+                  <div
+                    key={index}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-surface-input pr-1.5"
+                  >
+                    <input
+                      type="time"
+                      value={t}
+                      onChange={(e) => updateTimeAt(index, e.target.value)}
+                      aria-label={`Scheduled time ${index + 1}`}
+                      className="rounded-lg bg-transparent px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:outline-none"
+                    />
+                    {times.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTimeAt(index)}
+                        className="rounded p-1 text-zinc-500 transition hover:text-red-400"
+                        aria-label={`Remove time ${t}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <Button type="button" variant="secondary" onClick={addTime}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Time
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg border border-white/[0.08] bg-surface-input px-3 py-1.5 font-mono text-sm tabular-nums text-zinc-300">
+                    {getShiftStartTime(targetShift)}
+                  </span>
+                  <span className="text-xs text-zinc-500">until</span>
                   <input
                     type="time"
-                    value={t}
-                    onChange={(e) => updateTimeAt(index, e.target.value)}
-                    aria-label={`Scheduled time ${index + 1}`}
-                    className="rounded-lg bg-transparent px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:outline-none"
+                    value={dueUntil}
+                    onChange={(e) => setDueUntil(e.target.value)}
+                    aria-label="Due until time"
+                    className="rounded-lg border border-white/[0.08] bg-surface-input px-3 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:border-white/25 focus:outline-none"
                   />
-                  {times.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeTimeAt(index)}
-                      className="rounded p-1 text-zinc-500 transition hover:text-red-400"
-                      aria-label={`Remove time ${t}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                 </div>
-              ))}
-              <Button type="button" variant="secondary" onClick={addTime}>
-                <Plus className="h-3.5 w-3.5" />
-                Add Time
-              </Button>
-            </div>
+                <p className="text-[11px] text-zinc-500">
+                  Due from shift start until this time (overnight supported for Night shift).
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between border-t border-white/[0.06] pt-3.5">
@@ -605,7 +670,10 @@ export function DailyTasksView({
             isCompleted ? "text-zinc-500" : "text-zinc-100"
           }`}
         >
-          {occ.scheduledTime}
+          <div>{occ.scheduledTime}</div>
+          {occ.dueUntil && (
+            <div className="text-[11px] text-zinc-500">→ {occ.dueUntil}</div>
+          )}
         </div>
 
         {/* Right Content Column */}
@@ -909,7 +977,10 @@ export function DailyTasksView({
                       {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
                     </div>
                     <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
-                      Shift {task.targetShift} · {task.schedule.type} · {task.times.join(", ")}
+                      Shift {task.targetShift} · {task.schedule.type} ·{" "}
+                      {task.dueUntil
+                        ? `${task.times[0]} → ${task.dueUntil}`
+                        : task.times.join(", ")}
                     </div>
                   </div>
                   <Button

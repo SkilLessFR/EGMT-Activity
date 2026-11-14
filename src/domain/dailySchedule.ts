@@ -1,5 +1,6 @@
 import {
   getBucharestDayOfWeek,
+  getNextCalendarDate,
   getPreviousCalendarDate,
 } from "../shared/timezone";
 import type {
@@ -15,6 +16,21 @@ import type {
 export interface ShiftLookup {
   shift: Shift;
   usePreviousDay: boolean;
+}
+
+export function getShiftStartTime(targetShift: TargetShift): string {
+  switch (targetShift) {
+    case "M":
+      return "06:00";
+    case "A":
+      return "14:00";
+    case "N":
+      return "22:00";
+    case "MID":
+      return "09:00";
+    case "ALL_ACTIVE":
+      return "06:00";
+  }
 }
 
 /**
@@ -181,6 +197,7 @@ export function isDailyTaskScheduledOnDate(
 export function computeDailyOccurrenceStatus(params: {
   scheduledDate: string;
   scheduledTime: string;
+  dueUntil?: string;
   completion: TaskCompletion | null;
   nowDate: string;
   nowTime: string;
@@ -189,6 +206,7 @@ export function computeDailyOccurrenceStatus(params: {
   const {
     scheduledDate,
     scheduledTime,
+    dueUntil,
     completion,
     nowDate,
     nowTime,
@@ -199,15 +217,38 @@ export function computeDailyOccurrenceStatus(params: {
     return "completed";
   }
 
+  const schedMins = parseTimeToMinutes(scheduledTime);
+  const nowMins = parseTimeToMinutes(nowTime);
+
+  if (dueUntil !== undefined) {
+    const dueUntilMins = parseTimeToMinutes(dueUntil);
+    const crossesMidnight = dueUntilMins < schedMins;
+
+    if (crossesMidnight) {
+      const nextDate = getNextCalendarDate(scheduledDate);
+      if (nowDate < scheduledDate) return "upcoming";
+      if (nowDate === scheduledDate) {
+        return nowMins < schedMins ? "upcoming" : "dueNow";
+      }
+      if (nowDate === nextDate) {
+        return nowMins <= dueUntilMins ? "dueNow" : "overdue";
+      }
+      return "overdue";
+    }
+
+    if (scheduledDate < nowDate) return "overdue";
+    if (scheduledDate > nowDate) return "upcoming";
+    if (nowMins < schedMins) return "upcoming";
+    if (nowMins <= dueUntilMins) return "dueNow";
+    return "overdue";
+  }
+
   if (scheduledDate < nowDate) {
     return "overdue";
   }
   if (scheduledDate > nowDate) {
     return "upcoming";
   }
-
-  const schedMins = parseTimeToMinutes(scheduledTime);
-  const nowMins = parseTimeToMinutes(nowTime);
 
   if (nowMins < schedMins) {
     return "upcoming";
@@ -277,6 +318,7 @@ export function generateDailyOccurrences(params: {
       const status = computeDailyOccurrenceStatus({
         scheduledDate: selectedDate,
         scheduledTime,
+        dueUntil: task.dueUntil,
         completion,
         nowDate,
         nowTime,
@@ -291,6 +333,7 @@ export function generateDailyOccurrences(params: {
         targetShift: task.targetShift,
         scheduledDate: selectedDate,
         scheduledTime,
+        ...(task.dueUntil !== undefined ? { dueUntil: task.dueUntil } : {}),
         eligibleEmployees,
         status,
         completion,

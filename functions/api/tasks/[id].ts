@@ -51,6 +51,11 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       : {}),
     ...(updates.schedule !== undefined ? { schedule: updates.schedule } : {}),
     ...(updates.times !== undefined ? { times: updates.times } : {}),
+    ...(updates.dueUntil === null
+      ? { dueUntil: undefined }
+      : updates.dueUntil !== undefined
+        ? { dueUntil: updates.dueUntil }
+        : {}),
     ...(updates.enabled !== undefined ? { enabled: updates.enabled } : {}),
     updatedAt: new Date().toISOString(),
   };

@@ -14,6 +14,7 @@ export interface DailyTask {
   targetShift: TargetShift;
   schedule: TaskSchedule;
   times: string[]; // HH:MM (24h)
+  dueUntil?: string; // HH:MM (24h) — when set, task is due from shift start until this deadline
   enabled: boolean;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
@@ -60,6 +61,7 @@ export interface DailyOccurrence {
   targetShift: TargetShift;
   scheduledDate: string; // YYYY-MM-DD
   scheduledTime: string; // HH:MM
+  dueUntil?: string; // HH:MM
   eligibleEmployees: string[];
   status: DailyOccurrenceStatus;
   completion: TaskCompletion | null;
@@ -126,10 +128,13 @@ export interface CreateDailyTaskRequest {
   targetShift: TargetShift;
   schedule: TaskSchedule;
   times: string[];
+  dueUntil?: string;
   enabled?: boolean;
 }
 
-export type UpdateDailyTaskRequest = Partial<CreateDailyTaskRequest>;
+export type UpdateDailyTaskRequest = Partial<Omit<CreateDailyTaskRequest, "dueUntil">> & {
+  dueUntil?: string | null;
+};
 
 export interface DailyTaskResponse {
   task: DailyTask;

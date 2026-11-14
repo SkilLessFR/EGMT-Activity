@@ -94,6 +94,9 @@ export function validateCreateDailyTask(body: Record<string, unknown>): {
   const schedule = validateSchedule(body.schedule, errors);
   const times = validateTimes(body.times, errors);
 
+  if (body.dueUntil !== undefined && !isValidTimeHHMM(body.dueUntil)) {
+    errors.push("dueUntil must be a valid HH:MM (24h) string");
+  }
   if (body.enabled !== undefined && typeof body.enabled !== "boolean") {
     errors.push("enabled must be a boolean");
   }
@@ -115,6 +118,7 @@ export function validateCreateDailyTask(body: Record<string, unknown>): {
       targetShift: body.targetShift,
       schedule,
       times,
+      ...(typeof body.dueUntil === "string" ? { dueUntil: body.dueUntil } : {}),
       enabled: body.enabled !== undefined ? (body.enabled as boolean) : true,
     },
   };
@@ -158,6 +162,15 @@ export function validateUpdateDailyTask(body: Record<string, unknown>): {
     const times = validateTimes(body.times, errors);
     if (times) {
       data.times = times;
+    }
+  }
+  if (body.dueUntil !== undefined) {
+    if (body.dueUntil === null || body.dueUntil === "") {
+      data.dueUntil = null;
+    } else if (!isValidTimeHHMM(body.dueUntil)) {
+      errors.push("dueUntil must be a valid HH:MM (24h) string or null");
+    } else {
+      data.dueUntil = body.dueUntil;
     }
   }
   if (body.enabled !== undefined) {
@@ -207,6 +220,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     targetShift: validation.data.targetShift,
     schedule: validation.data.schedule,
     times: validation.data.times,
+    ...(validation.data.dueUntil !== undefined
+      ? { dueUntil: validation.data.dueUntil }
+      : {}),
     enabled: validation.data.enabled ?? true,
     createdAt: nowIso,
     updatedAt: nowIso,

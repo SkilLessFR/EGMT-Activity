@@ -374,5 +374,75 @@ describe("dailySchedule", () => {
       expect(grouped.upcoming.map((o) => o.taskId)).toEqual(["t3"]);
       expect(grouped.completed.map((o) => o.taskId)).toEqual(["t4"]);
     });
+
+    it("handles shift-start-until-deadline (dueUntil) for same-day and overnight shifts", () => {
+      // Same-day Morning shift: 06:00 -> 10:00
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "06:00",
+          dueUntil: "10:00",
+          completion: null,
+          nowDate: "2026-11-15",
+          nowTime: "05:59",
+        })
+      ).toBe("upcoming");
+
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "06:00",
+          dueUntil: "10:00",
+          completion: null,
+          nowDate: "2026-11-15",
+          nowTime: "09:45",
+        })
+      ).toBe("dueNow");
+
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "06:00",
+          dueUntil: "10:00",
+          completion: null,
+          nowDate: "2026-11-15",
+          nowTime: "10:01",
+        })
+      ).toBe("overdue");
+
+      // Overnight Night shift: 22:00 on Nov 15 -> 02:00 on Nov 16
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "22:00",
+          dueUntil: "02:00",
+          completion: null,
+          nowDate: "2026-11-15",
+          nowTime: "23:30",
+        })
+      ).toBe("dueNow");
+
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "22:00",
+          dueUntil: "02:00",
+          completion: null,
+          nowDate: "2026-11-16",
+          nowTime: "01:45",
+        })
+      ).toBe("dueNow");
+
+      expect(
+        computeDailyOccurrenceStatus({
+          scheduledDate: "2026-11-15",
+          scheduledTime: "22:00",
+          dueUntil: "02:00",
+          completion: null,
+          nowDate: "2026-11-16",
+          nowTime: "02:01",
+        })
+      ).toBe("overdue");
+    });
   });
 });
