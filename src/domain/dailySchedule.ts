@@ -1,0 +1,335 @@
+import {
+  getBucharestDayOfWeek,
+  getPreviousCalendarDate,
+} from "../shared/timezone";
+import type {
+  DailyOccurrence,
+  DailyOccurrenceStatus,
+  DailyTask,
+  RosterData,
+  Shift,
+  TargetShift,
+  TaskCompletion,
+} from "../shared/types";
+
+export interface ShiftLookup {
+  shift: Shift;
+  usePreviousDay: boolean;
+}
+
+/**
+ * Parses "HH:MM" into minutes since midnight (0..1439).
+ */
+export function parseTimeToMinutes(timeHHMM: string): number {
+  const [hStr, mStr] = timeHHMM.split(":");
+  return Number(hStr) * 60 + Number(mStr);
+}
+
+/**
+ * Returns deterministic occurrenceId encoding taskId, scheduledDate, and scheduledTime.
+ */
+export function buildDailyOccurrenceId(
+  taskId: string,
+  scheduledDate: string,
+  scheduledTime: string
+): string {
+  return `daily:${taskId}:${scheduledDate}:${scheduledTime}`;
+}
+
+/**
+ * Returns which shifts are active at a given HH:MM time in Europe/Bucharest.
+ *
+ * Shift hours:
+ * - M:   06:00 - 14:00 ([06:00, 14:00))
+ * - MID: 09:00 - 17:00 ([09:00, 17:00))
+ * - A:   14:00 - 22:00 ([14:00, 22:00))
+ * - N:   22:00 - 06:00 ([22:00, 24:00) on date D, [00:00, 06:00) from date D-1)
+ */
+export function getActiveShiftsAtTime(timeHHMM: string): ShiftLookup[] {
+  const mins = parseTimeToMinutes(timeHHMM);
+  const active: ShiftLookup[] = [];
+
+  // 00:00 - 05:59 -> Night shift from previous calendar day (D-1)
+  if (mins >= 0 && mins < 6 * 60) {
+    active.push({ shift: "N", usePreviousDay: true });
+    return active;
+  }
+
+  // 06:00 - 13:59 -> M shift
+  if (mins >= 6 * 60 && mins < 14 * 60) {
+    active.push({ shift: "M", usePreviousDay: false });
+  }
+
+  // 09:00 - 16:59 -> MID shift (overlaps M 09:00-14:00 and A 14:00-17:00)
+  if (mins >= 9 * 60 && mins < 17 * 60) {
+    active.push({ shift: "MID", usePreviousDay: false });
+  }
+
+  // 14:00 - 21:59 -> A shift
+  if (mins >= 14 * 60 && mins < 22 * 60) {
+    active.push({ shift: "A", usePreviousDay: false });
+  }
+
+  // 22:00 - 23:59 -> N shift on current calendar day (D)
+  if (mins >= 22 * 60) {
+    active.push({ shift: "N", usePreviousDay: false });
+  }
+
+  return active;
+}
+
+function getEmployeesForShiftOnDate(
+  roster: RosterData | null | undefined,
+  date: string,
+  shift: Shift
+): string[] {
+  if (!roster) return [];
+  const result: string[] = [];
+  for (const employee of roster.employees) {
+    const empRow = roster.rows[employee];
+    if (empRow && empRow[date] === shift) {
+      result.push(employee);
+    }
+  }
+  return result;
+}
+
+/**
+ * Determines eligible employees from RosterData (and previous day's RosterData
+ * when midnight-crossing N shift is active between 00:00 and 05:59).
+ */
+export function getEligibleEmployeesForDailyTask(params: {
+  targetShift: TargetShift;
+  scheduledDate: string;
+  scheduledTime: string;
+  currentRoster?: RosterData | null;
+  previousRoster?: RosterData | null;
+  previousDate?: string;
+}): string[] {
+  const {
+    targetShift,
+    scheduledDate,
+    scheduledTime,
+    currentRoster,
+    previousRoster,
+    previousDate,
+  } = params;
+
+  const prevDate = previousDate ?? getPreviousCalendarDate(scheduledDate);
+  const mins = parseTimeToMinutes(scheduledTime);
+
+  if (targetShift === "ALL_ACTIVE") {
+    const activeLookups = getActiveShiftsAtTime(scheduledTime);
+    const seen = new Set<string>();
+    const eligible: string[] = [];
+
+    for (const lookup of activeLookups) {
+      const rosterToUse = lookup.usePreviousDay
+        ? (previousRoster ?? currentRoster)
+        : currentRoster;
+      const dateToUse = lookup.usePreviousDay ? prevDate : scheduledDate;
+      const emps = getEmployeesForShiftOnDate(
+        rosterToUse,
+        dateToUse,
+        lookup.shift
+      );
+      for (const emp of emps) {
+        if (!seen.has(emp)) {
+          seen.add(emp);
+          eligible.push(emp);
+        }
+      }
+    }
+
+    return eligible;
+  }
+
+  // Specific targetShift
+  if (targetShift === "N" && mins >= 0 && mins < 6 * 60) {
+    // Between 00:00 and 05:59 on date D, N shift active is from date D-1
+    const rosterToUse = previousRoster ?? currentRoster;
+    return getEmployeesForShiftOnDate(rosterToUse, prevDate, "N");
+  }
+
+  return getEmployeesForShiftOnDate(currentRoster, scheduledDate, targetShift);
+}
+
+/**
+ * Checks whether a DailyTask is scheduled to run on the given YYYY-MM-DD date.
+ */
+export function isDailyTaskScheduledOnDate(
+  task: DailyTask,
+  dateStr: string
+): boolean {
+  if (!task.enabled) return false;
+
+  switch (task.schedule.type) {
+    case "once":
+      return task.schedule.date === dateStr;
+    case "daily":
+      return true;
+    case "weekly": {
+      const dayOfWeek = getBucharestDayOfWeek(dateStr);
+      return task.schedule.daysOfWeek.includes(dayOfWeek);
+    }
+  }
+}
+
+/**
+ * Computes occurrence status relative to current Europe/Bucharest date and time.
+ */
+export function computeDailyOccurrenceStatus(params: {
+  scheduledDate: string;
+  scheduledTime: string;
+  completion: TaskCompletion | null;
+  nowDate: string;
+  nowTime: string;
+  dueWindowMinutes?: number;
+}): DailyOccurrenceStatus {
+  const {
+    scheduledDate,
+    scheduledTime,
+    completion,
+    nowDate,
+    nowTime,
+    dueWindowMinutes = 30,
+  } = params;
+
+  if (completion !== null) {
+    return "completed";
+  }
+
+  if (scheduledDate < nowDate) {
+    return "overdue";
+  }
+  if (scheduledDate > nowDate) {
+    return "upcoming";
+  }
+
+  const schedMins = parseTimeToMinutes(scheduledTime);
+  const nowMins = parseTimeToMinutes(nowTime);
+
+  if (nowMins < schedMins) {
+    return "upcoming";
+  }
+  if (nowMins - schedMins <= dueWindowMinutes) {
+    return "dueNow";
+  }
+  return "overdue";
+}
+
+/**
+ * Generates sorted DailyOccurrence[] for a selected YYYY-MM-DD date.
+ */
+export function generateDailyOccurrences(params: {
+  tasks: DailyTask[];
+  selectedDate: string;
+  completions: TaskCompletion[];
+  currentRoster?: RosterData | null;
+  previousRoster?: RosterData | null;
+  nowDate?: string;
+  nowTime?: string;
+  dueWindowMinutes?: number;
+}): DailyOccurrence[] {
+  const {
+    tasks,
+    selectedDate,
+    completions,
+    currentRoster,
+    previousRoster,
+    nowDate = selectedDate,
+    nowTime = "00:00",
+    dueWindowMinutes = 30,
+  } = params;
+
+  const completionByOccurrenceId = new Map<string, TaskCompletion>();
+  for (const c of completions) {
+    if (c.taskType === "DAILY") {
+      completionByOccurrenceId.set(c.occurrenceId, c);
+    }
+  }
+
+  const occurrences: DailyOccurrence[] = [];
+  const prevDate = getPreviousCalendarDate(selectedDate);
+
+  for (const task of tasks) {
+    if (!isDailyTaskScheduledOnDate(task, selectedDate)) {
+      continue;
+    }
+
+    const uniqueTimes = Array.from(new Set(task.times)).sort();
+    for (const scheduledTime of uniqueTimes) {
+      const occurrenceId = buildDailyOccurrenceId(
+        task.id,
+        selectedDate,
+        scheduledTime
+      );
+      const completion = completionByOccurrenceId.get(occurrenceId) ?? null;
+      const eligibleEmployees = getEligibleEmployeesForDailyTask({
+        targetShift: task.targetShift,
+        scheduledDate: selectedDate,
+        scheduledTime,
+        currentRoster,
+        previousRoster,
+        previousDate: prevDate,
+      });
+
+      const status = computeDailyOccurrenceStatus({
+        scheduledDate: selectedDate,
+        scheduledTime,
+        completion,
+        nowDate,
+        nowTime,
+        dueWindowMinutes,
+      });
+
+      occurrences.push({
+        occurrenceId,
+        taskId: task.id,
+        taskTitle: task.title,
+        taskDescription: task.description,
+        targetShift: task.targetShift,
+        scheduledDate: selectedDate,
+        scheduledTime,
+        eligibleEmployees,
+        status,
+        completion,
+      });
+    }
+  }
+
+  occurrences.sort((a, b) => {
+    const timeCmp = a.scheduledTime.localeCompare(b.scheduledTime);
+    if (timeCmp !== 0) return timeCmp;
+    return a.taskTitle.localeCompare(b.taskTitle);
+  });
+
+  return occurrences;
+}
+
+export interface GroupedDailyOccurrences {
+  overdue: DailyOccurrence[];
+  dueNow: DailyOccurrence[];
+  upcoming: DailyOccurrence[];
+  completed: DailyOccurrence[];
+}
+
+/**
+ * Groups DailyOccurrence[] into overdue, dueNow, upcoming, and completed buckets.
+ */
+export function groupDailyOccurrences(
+  occurrences: DailyOccurrence[]
+): GroupedDailyOccurrences {
+  const grouped: GroupedDailyOccurrences = {
+    overdue: [],
+    dueNow: [],
+    upcoming: [],
+    completed: [],
+  };
+
+  for (const occ of occurrences) {
+    grouped[occ.status].push(occ);
+  }
+
+  return grouped;
+}
