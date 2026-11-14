@@ -24,7 +24,9 @@ import {
   updateDailyTask,
 } from "../api/client";
 import {
+  filterOccurrencesForCurrentShift,
   generateDailyOccurrences,
+  getCurrentShiftWindow,
   getShiftStartTime,
   groupDailyOccurrences,
 } from "../domain/dailySchedule";
@@ -535,10 +537,17 @@ export function DailyTasksView({
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
+  const [shiftFilter, setShiftFilter] = useState<"current" | "all">("current");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNowParts(getBucharestNowParts());
+      const next = getBucharestNowParts();
+      setNowParts((prev) => {
+        if (prev.date !== next.date) {
+          setSelectedDate((sel) => (sel === prev.date ? next.date : sel));
+        }
+        return next;
+      });
     }, 30_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -546,17 +555,23 @@ export function DailyTasksView({
   const currentMonthKey = selectedDate.slice(0, 7);
   const prevDate = useMemo(() => getPreviousCalendarDate(selectedDate), [selectedDate]);
   const prevMonthKey = prevDate.slice(0, 7);
+  const shiftWindow = useMemo(() => getCurrentShiftWindow(nowParts.time), [nowParts.time]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [tasksRes, completionsRes] = await Promise.all([
+      const needsPrevCompletions = shiftWindow.nightHalf === "second";
+      const [tasksRes, completionsRes, prevCompletionsRes] = await Promise.all([
         fetchDailyTasks(),
         fetchCompletions({ date: selectedDate }),
+        needsPrevCompletions ? fetchCompletions({ date: prevDate }) : Promise.resolve([]),
       ]);
       setTasks(tasksRes);
-      setCompletions(completionsRes);
+      const mergedMap = new Map<string, TaskCompletion>();
+      for (const c of completionsRes) mergedMap.set(c.id, c);
+      for (const c of prevCompletionsRes) mergedMap.set(c.id, c);
+      setCompletions(Array.from(mergedMap.values()));
 
       if (!(currentMonthKey in rosterCache)) {
         const r = await fetchRoster(currentMonthKey);
@@ -571,7 +586,7 @@ export function DailyTasksView({
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, currentMonthKey, prevMonthKey, rosterCache, onRosterLoaded]);
+  }, [selectedDate, prevDate, shiftWindow.nightHalf, currentMonthKey, prevMonthKey, rosterCache, onRosterLoaded]);
 
   useEffect(() => {
     void loadData();
@@ -581,7 +596,7 @@ export function DailyTasksView({
   const previousRoster =
     prevMonthKey === currentMonthKey ? currentRoster : (rosterCache[prevMonthKey] ?? null);
 
-  const occurrences = useMemo(
+  const dayOccurrences = useMemo(
     () =>
       generateDailyOccurrences({
         tasks,
@@ -594,6 +609,32 @@ export function DailyTasksView({
       }),
     [tasks, selectedDate, completions, currentRoster, previousRoster, nowParts.date, nowParts.time]
   );
+
+  const prevDateOccurrences = useMemo(() => {
+    if (shiftFilter !== "current" || shiftWindow.nightHalf !== "second") {
+      return [];
+    }
+    return generateDailyOccurrences({
+      tasks,
+      selectedDate: prevDate,
+      completions,
+      currentRoster: previousRoster,
+      previousRoster: null,
+      nowDate: nowParts.date,
+      nowTime: nowParts.time,
+    });
+  }, [shiftFilter, shiftWindow.nightHalf, tasks, prevDate, completions, previousRoster, nowParts.date, nowParts.time]);
+
+  const occurrences = useMemo(() => {
+    if (shiftFilter === "all") {
+      return dayOccurrences;
+    }
+    return filterOccurrencesForCurrentShift({
+      occurrences: dayOccurrences,
+      prevDateOccurrences,
+      nowTime: nowParts.time,
+    });
+  }, [shiftFilter, dayOccurrences, prevDateOccurrences, nowParts.time]);
 
   const grouped = useMemo(() => groupDailyOccurrences(occurrences), [occurrences]);
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
@@ -869,41 +910,68 @@ export function DailyTasksView({
         </div>
       </div>
 
-      {/* Inline Status Summary */}
+      {/* Inline Status Summary + Shift Filter */}
       {!loading && !error && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-white/[0.06] pb-3 text-xs text-zinc-500">
-          <span>
-            <span className="font-mono tabular-nums text-zinc-200">{pendingCount}</span> pending
-          </span>
-          {grouped.dueNow.length > 0 && (
-            <>
-              <span className="text-zinc-600">·</span>
-              <span>
-                <span className="font-mono tabular-nums text-zinc-200">
-                  {grouped.dueNow.length}
-                </span>{" "}
-                due now
-              </span>
-            </>
-          )}
-          <span className="text-zinc-600">·</span>
-          <span>
-            <span className="font-mono tabular-nums text-zinc-200">
-              {grouped.completed.length}
-            </span>{" "}
-            completed
-          </span>
-          {grouped.overdue.length > 0 && (
-            <>
-              <span className="text-zinc-600">·</span>
-              <span>
-                <span className="font-mono tabular-nums text-red-400">
-                  {grouped.overdue.length}
-                </span>{" "}
-                overdue
-              </span>
-            </>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              <span className="font-mono tabular-nums text-zinc-200">{pendingCount}</span> pending
+            </span>
+            {grouped.dueNow.length > 0 && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span>
+                  <span className="font-mono tabular-nums text-zinc-200">
+                    {grouped.dueNow.length}
+                  </span>{" "}
+                  due now
+                </span>
+              </>
+            )}
+            <span className="text-zinc-600">·</span>
+            <span>
+              <span className="font-mono tabular-nums text-zinc-200">
+                {grouped.completed.length}
+              </span>{" "}
+              completed
+            </span>
+            {grouped.overdue.length > 0 && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span>
+                  <span className="font-mono tabular-nums text-red-400">
+                    {grouped.overdue.length}
+                  </span>{" "}
+                  overdue
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="inline-flex rounded-lg bg-white/[0.04] p-0.5">
+            <button
+              type="button"
+              onClick={() => setShiftFilter("current")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                shiftFilter === "current"
+                  ? "bg-zinc-100 font-semibold text-zinc-950"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Shift {shiftWindow.activeShifts.join("+")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShiftFilter("all")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                shiftFilter === "all"
+                  ? "bg-zinc-100 font-semibold text-zinc-950"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              All Shifts
+            </button>
+          </div>
         </div>
       )}
 

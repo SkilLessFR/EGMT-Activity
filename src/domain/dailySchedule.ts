@@ -350,6 +350,92 @@ export function generateDailyOccurrences(params: {
   return occurrences;
 }
 
+export interface CurrentShiftWindow {
+  primaryShift: "M" | "A" | "N";
+  activeShifts: Shift[];
+  nightHalf: "first" | "second" | null;
+}
+
+/**
+ * Returns the active shift(s) and night-shift half for a given HH:MM time in Europe/Bucharest.
+ * Night shift spans two calendar days:
+ * - "first": 22:00–23:59 (first calendar day)
+ * - "second": 00:00–05:59 (second calendar day)
+ */
+export function getCurrentShiftWindow(nowTime: string): CurrentShiftWindow {
+  const mins = parseTimeToMinutes(nowTime);
+  const activeShifts = getActiveShiftsAtTime(nowTime).map((s) => s.shift);
+
+  if (mins >= 6 * 60 && mins < 14 * 60) {
+    return { primaryShift: "M", activeShifts, nightHalf: null };
+  }
+  if (mins >= 14 * 60 && mins < 22 * 60) {
+    return { primaryShift: "A", activeShifts, nightHalf: null };
+  }
+  if (mins >= 22 * 60) {
+    return { primaryShift: "N", activeShifts, nightHalf: "first" };
+  }
+  return { primaryShift: "N", activeShifts, nightHalf: "second" };
+}
+
+function isTimeInCurrentWindow(
+  scheduledTime: string,
+  window: CurrentShiftWindow
+): boolean {
+  const mins = parseTimeToMinutes(scheduledTime);
+  if (window.primaryShift === "M") {
+    return mins >= 6 * 60 && mins < 14 * 60;
+  }
+  if (window.primaryShift === "A") {
+    return mins >= 14 * 60 && mins < 22 * 60;
+  }
+  if (window.nightHalf === "first") {
+    return mins >= 22 * 60;
+  }
+  return mins < 6 * 60;
+}
+
+/**
+ * Filters occurrences to only those relevant to the current shift at `nowTime`.
+ * Handles Night shift spanning 2 calendar days:
+ * - 22:00–23:59 ("first"): shows Night/ALL_ACTIVE tasks in 22:00–23:59 of selectedDate.
+ * - 00:00–05:59 ("second"): shows Night/ALL_ACTIVE tasks in 00:00–05:59 of selectedDate,
+ *   plus any overnight dueUntil Night/ALL_ACTIVE occurrences that started on prevDate.
+ */
+export function filterOccurrencesForCurrentShift(params: {
+  occurrences: DailyOccurrence[];
+  prevDateOccurrences?: DailyOccurrence[];
+  nowTime: string;
+}): DailyOccurrence[] {
+  const { occurrences, prevDateOccurrences = [], nowTime } = params;
+  const window = getCurrentShiftWindow(nowTime);
+  const activeSet = new Set<Shift>(window.activeShifts);
+
+  const filtered = occurrences.filter((occ) => {
+    if (occ.targetShift === "ALL_ACTIVE") {
+      return isTimeInCurrentWindow(occ.scheduledTime, window);
+    }
+    if (occ.targetShift === "N") {
+      if (window.primaryShift !== "N") return false;
+      return isTimeInCurrentWindow(occ.scheduledTime, window);
+    }
+    return activeSet.has(occ.targetShift);
+  });
+
+  if (window.primaryShift === "N" && window.nightHalf === "second") {
+    const seen = new Set(filtered.map((o) => o.occurrenceId));
+    const overnightFromPrev = prevDateOccurrences.filter((occ) => {
+      if (seen.has(occ.occurrenceId)) return false;
+      if (occ.targetShift !== "N" && occ.targetShift !== "ALL_ACTIVE") return false;
+      if (!occ.dueUntil) return false;
+      return parseTimeToMinutes(occ.dueUntil) < parseTimeToMinutes(occ.scheduledTime);
+    });
+    return [...overnightFromPrev, ...filtered];
+  }
+
+  return filtered;
+}
+
 export interface GroupedDailyOccurrences {
   overdue: DailyOccurrence[];
   dueNow: DailyOccurrence[];

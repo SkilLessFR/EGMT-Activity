@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildDailyOccurrenceId,
   computeDailyOccurrenceStatus,
+  filterOccurrencesForCurrentShift,
   generateDailyOccurrences,
   getActiveShiftsAtTime,
+  getCurrentShiftWindow,
   getEligibleEmployeesForDailyTask,
   groupDailyOccurrences,
 } from "../src/domain/dailySchedule";
@@ -443,6 +445,132 @@ describe("dailySchedule", () => {
           nowTime: "02:01",
         })
       ).toBe("overdue");
+    });
+  });
+
+  describe("current shift filtering & 2-day night shift split", () => {
+    const sampleTasks: DailyTask[] = [
+      {
+        id: "t-m",
+        title: "Morning Check",
+        targetShift: "M",
+        schedule: { type: "daily" },
+        times: ["08:00"],
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+      {
+        id: "t-mid",
+        title: "Midday Check",
+        targetShift: "MID",
+        schedule: { type: "daily" },
+        times: ["10:00"],
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+      {
+        id: "t-a",
+        title: "Afternoon Check",
+        targetShift: "A",
+        schedule: { type: "daily" },
+        times: ["15:00"],
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+      {
+        id: "t-n-first",
+        title: "Night First Half",
+        targetShift: "N",
+        schedule: { type: "daily" },
+        times: ["22:30"],
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+      {
+        id: "t-n-second",
+        title: "Night Second Half",
+        targetShift: "N",
+        schedule: { type: "daily" },
+        times: ["03:00"],
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+      {
+        id: "t-n-window",
+        title: "Night Overnight Deadline",
+        targetShift: "N",
+        schedule: { type: "daily" },
+        times: ["22:00"],
+        dueUntil: "02:00",
+        enabled: true,
+        createdAt: "2026-11-01T00:00:00Z",
+        updatedAt: "2026-11-01T00:00:00Z",
+      },
+    ];
+
+    it("filters M and MID overlap during daytime", () => {
+      expect(getCurrentShiftWindow("07:30").activeShifts).toEqual(["M"]);
+      expect(getCurrentShiftWindow("10:00").activeShifts).toEqual(["M", "MID"]);
+
+      const dayOccs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-15",
+        completions: [],
+        nowDate: "2026-11-15",
+        nowTime: "10:00",
+      });
+      const filtered = filterOccurrencesForCurrentShift({
+        occurrences: dayOccs,
+        nowTime: "10:00",
+      });
+      expect(filtered.map((o) => o.taskId)).toEqual(["t-m", "t-mid"]);
+    });
+
+    it("shows only 22:00–23:59 Night tasks on the first day (22:00–00:00)", () => {
+      const day1Occs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-14",
+        completions: [],
+        nowDate: "2026-11-14",
+        nowTime: "22:30",
+      });
+      const filtered = filterOccurrencesForCurrentShift({
+        occurrences: day1Occs,
+        nowTime: "22:30",
+      });
+      expect(filtered.map((o) => o.taskId)).toEqual(["t-n-window", "t-n-first"]);
+    });
+
+    it("switches to second day after 00:00 and includes overnight dueUntil tasks from first day", () => {
+      const day2Occs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-15",
+        completions: [],
+        nowDate: "2026-11-15",
+        nowTime: "01:15",
+      });
+      const day1Occs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-14",
+        completions: [],
+        nowDate: "2026-11-15",
+        nowTime: "01:15",
+      });
+      const filtered = filterOccurrencesForCurrentShift({
+        occurrences: day2Occs,
+        prevDateOccurrences: day1Occs,
+        nowTime: "01:15",
+      });
+      expect(filtered.map((o) => `${o.taskId}@${o.scheduledDate}`)).toEqual([
+        "t-n-window@2026-11-14",
+        "t-n-second@2026-11-15",
+      ]);
+      expect(filtered[0].status).toBe("dueNow");
     });
   });
 });
