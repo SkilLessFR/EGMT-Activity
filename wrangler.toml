@@ -5,5 +5,5 @@ pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "EGMT_ACTIVIT"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+id = "a183c5a4dcff4f80a59a2431287d3b03"
+preview_id = "a183c5a4dcff4f80a59a2431287d3b03"
