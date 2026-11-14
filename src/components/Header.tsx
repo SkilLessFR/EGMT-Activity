@@ -57,7 +57,7 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-canvas/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-canvas/80 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl md:pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           {/* Left: wordmark + desktop navigation */}
           <div className="flex items-center gap-8">
