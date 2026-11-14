@@ -526,9 +526,24 @@ export function DailyTasksView({
 
   const handleComplete = async (occ: DailyOccurrence, employee: string) => {
     const key = `${occ.occurrenceId}:${employee}`;
+    const optimisticId = `optimistic:${key}:${Date.now()}`;
+    const optimisticCompletion: TaskCompletion = {
+      id: optimisticId,
+      occurrenceId: occ.occurrenceId,
+      taskId: occ.taskId,
+      taskType: "DAILY",
+      taskTitle: occ.taskTitle,
+      scheduledDate: occ.scheduledDate,
+      scheduledTime: occ.scheduledTime,
+      completedBy: employee,
+      completedAt: new Date().toISOString(),
+    };
+
     setSubmittingKey(key);
+    setCompletions((prev) => [...prev, optimisticCompletion]);
+
     try {
-      await createCompletion({
+      const saved = await createCompletion({
         occurrenceId: occ.occurrenceId,
         taskId: occ.taskId,
         taskType: "DAILY",
@@ -537,14 +552,16 @@ export function DailyTasksView({
         scheduledTime: occ.scheduledTime,
         completedBy: employee,
       });
-      const updated = await fetchCompletions({ date: selectedDate });
-      setCompletions(updated);
+      setCompletions((prev) =>
+        prev.map((c) => (c.id === optimisticId ? saved : c))
+      );
       showToast({
         tone: "success",
         title: "Task completed",
         description: `${occ.taskTitle} · ${employee}`,
       });
     } catch (err) {
+      setCompletions((prev) => prev.filter((c) => c.id !== optimisticId));
       showToast({
         tone: "error",
         title: "Completion failed",

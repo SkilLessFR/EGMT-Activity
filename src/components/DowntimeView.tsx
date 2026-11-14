@@ -395,9 +395,24 @@ export function DowntimeView({
 
   const handleComplete = async (occ: MaintenanceOccurrence, employee: string) => {
     const key = `${occ.occurrenceId}:${employee}`;
+    const optimisticId = `optimistic:${key}:${Date.now()}`;
+    const optimisticCompletion: TaskCompletion = {
+      id: optimisticId,
+      occurrenceId: occ.occurrenceId,
+      taskId: occ.taskId,
+      taskType: "MAINTENANCE",
+      taskTitle: occ.taskTitle,
+      scheduledDate: occ.scheduledDate,
+      window: occ.window,
+      completedBy: employee,
+      completedAt: new Date().toISOString(),
+    };
+
     setSubmittingKey(key);
+    setCompletions((prev) => [...prev, optimisticCompletion]);
+
     try {
-      await createCompletion({
+      const saved = await createCompletion({
         occurrenceId: occ.occurrenceId,
         taskId: occ.taskId,
         taskType: "MAINTENANCE",
@@ -406,14 +421,16 @@ export function DowntimeView({
         window: occ.window,
         completedBy: employee,
       });
-      const updated = await fetchCompletions({ month: selectedMonth });
-      setCompletions(updated);
+      setCompletions((prev) =>
+        prev.map((c) => (c.id === optimisticId ? saved : c))
+      );
       showToast({
         tone: "success",
         title: "Maintenance recorded",
         description: `${occ.taskTitle} · ${employee}`,
       });
     } catch (err) {
+      setCompletions((prev) => prev.filter((c) => c.id !== optimisticId));
       showToast({
         tone: "error",
         title: "Failed to record completion",
