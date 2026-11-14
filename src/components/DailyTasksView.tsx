@@ -99,7 +99,6 @@ function TaskFormModal({
   const [onceDate, setOnceDate] = useState(defaultDate);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [times, setTimes] = useState<string[]>(["08:00"]);
-  const [newTime, setNewTime] = useState("12:00");
   const [enabled, setEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -143,16 +142,19 @@ function TaskFormModal({
     );
   };
 
-  const addTime = () => {
-    if (!/^\d{2}:\d{2}$/.test(newTime)) return;
-    if (!times.includes(newTime)) {
-      setTimes((prev) => [...prev, newTime].sort());
-    }
+  const updateTimeAt = (index: number, value: string) => {
+    setTimes((prev) => prev.map((item, i) => (i === index ? value : item)));
   };
 
-  const removeTime = (t: string) => {
+  const addTime = () => {
+    const candidates = ["12:00", "16:00", "20:00", "00:00", "04:00", "08:00"];
+    const next = candidates.find((c) => !times.includes(c)) ?? "12:00";
+    setTimes((prev) => [...prev, next]);
+  };
+
+  const removeTimeAt = (index: number) => {
     if (times.length <= 1) return;
-    setTimes((prev) => prev.filter((item) => item !== t));
+    setTimes((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,7 +173,10 @@ function TaskFormModal({
       setError("Valid date (YYYY-MM-DD) is required for one-time schedule.");
       return;
     }
-    if (times.length === 0) {
+    const cleanedTimes = Array.from(
+      new Set(times.filter((t) => /^\d{2}:\d{2}$/.test(t)))
+    ).sort();
+    if (cleanedTimes.length === 0) {
       setError("At least one scheduled time (HH:MM) is required.");
       return;
     }
@@ -192,7 +197,7 @@ function TaskFormModal({
         description: description.trim() || undefined,
         targetShift,
         schedule,
-        times,
+        times: cleanedTimes,
         enabled,
       };
       if (editingTask) {
@@ -350,33 +355,31 @@ function TaskFormModal({
               Scheduled Times{" "}
               <span className="text-zinc-500">(each time creates an independent occurrence)</span>
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {times.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-surface-input px-2.5 py-1.5 font-mono text-xs font-medium tabular-nums text-zinc-100"
+            <div className="flex flex-wrap items-center gap-2">
+              {times.map((t, index) => (
+                <div
+                  key={index}
+                  className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-surface-input pr-1.5"
                 >
-                  {t}
+                  <input
+                    type="time"
+                    value={t}
+                    onChange={(e) => updateTimeAt(index, e.target.value)}
+                    aria-label={`Scheduled time ${index + 1}`}
+                    className="rounded-lg bg-transparent px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:outline-none"
+                  />
                   {times.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => removeTime(t)}
-                      className="text-zinc-500 transition hover:text-red-400"
+                      onClick={() => removeTimeAt(index)}
+                      className="rounded p-1 text-zinc-500 transition hover:text-red-400"
                       aria-label={`Remove time ${t}`}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                </span>
+                </div>
               ))}
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="time"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="rounded-lg border border-white/[0.08] bg-surface-input px-3 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:border-white/25 focus:outline-none"
-              />
               <Button type="button" variant="secondary" onClick={addTime}>
                 <Plus className="h-3.5 w-3.5" />
                 Add Time
