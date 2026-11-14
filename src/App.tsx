@@ -5,6 +5,7 @@ import { DowntimeView } from "./components/DowntimeView";
 import { Header, type AppSection } from "./components/Header";
 import { HistoryView } from "./components/HistoryView";
 import { RosterModal } from "./components/RosterModal";
+import { ToastProvider } from "./components/ui/Toast";
 import { getBucharestDate } from "./shared/timezone";
 import type { RosterData } from "./shared/types";
 
@@ -24,7 +25,7 @@ export default function App() {
         }
       })
       .catch(() => {
-        // Individual views also handle roster fetch errors gracefully
+        // Individual views handle roster fetch errors gracefully
       });
     return () => {
       cancelled = true;
@@ -42,39 +43,41 @@ export default function App() {
   const currentRoster = rosterCache[currentMonthKey] ?? null;
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100">
-      <Header
-        activeSection={activeSection}
-        onSelectSection={setActiveSection}
-        roster={currentRoster}
-        rosterMonthKey={currentMonthKey}
-        onOpenRosterModal={() => setRosterModalOpen(true)}
-      />
+    <ToastProvider>
+      <div className="min-h-screen bg-canvas text-slate-100">
+        <Header
+          activeSection={activeSection}
+          onSelectSection={setActiveSection}
+          roster={currentRoster}
+          rosterMonthKey={currentMonthKey}
+          onOpenRosterModal={() => setRosterModalOpen(true)}
+        />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        {activeSection === "daily" && (
-          <DailyTasksView
-            rosterCache={rosterCache}
-            onRosterLoaded={handleRosterLoaded}
-            onOpenRosterModal={() => setRosterModalOpen(true)}
-          />
-        )}
-        {activeSection === "downtime" && (
-          <DowntimeView
-            rosterCache={rosterCache}
-            onRosterLoaded={handleRosterLoaded}
-            onOpenRosterModal={() => setRosterModalOpen(true)}
-          />
-        )}
-        {activeSection === "history" && <HistoryView roster={currentRoster} />}
-      </main>
+        <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 md:pb-10">
+          {activeSection === "daily" && (
+            <DailyTasksView
+              rosterCache={rosterCache}
+              onRosterLoaded={handleRosterLoaded}
+              onOpenRosterModal={() => setRosterModalOpen(true)}
+            />
+          )}
+          {activeSection === "downtime" && (
+            <DowntimeView
+              rosterCache={rosterCache}
+              onRosterLoaded={handleRosterLoaded}
+              onOpenRosterModal={() => setRosterModalOpen(true)}
+            />
+          )}
+          {activeSection === "history" && <HistoryView roster={currentRoster} />}
+        </main>
 
-      <RosterModal
-        isOpen={rosterModalOpen}
-        onClose={() => setRosterModalOpen(false)}
-        currentRoster={currentRoster}
-        onRosterUploaded={handleRosterUploaded}
-      />
-    </div>
+        <RosterModal
+          isOpen={rosterModalOpen}
+          onClose={() => setRosterModalOpen(false)}
+          currentRoster={currentRoster}
+          onRosterUploaded={handleRosterUploaded}
+        />
+      </div>
+    </ToastProvider>
   );
 }

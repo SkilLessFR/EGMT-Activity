@@ -4,10 +4,11 @@ import {
   CheckCircle2,
   Clock,
   Download,
-  Filter,
+  History,
   Loader2,
   RefreshCw,
   Search,
+  X,
 } from "lucide-react";
 import {
   downloadHistoryExport,
@@ -16,12 +17,31 @@ import {
 } from "../api/client";
 import { formatBucharestDateTime, getBucharestDate } from "../shared/timezone";
 import type { HistoryCategory, HistoryItem, RosterData } from "../shared/types";
+import {
+  Button,
+  EmptyState,
+  SkeletonCard,
+  StatusBadge,
+  inputClassName,
+  selectClassName,
+} from "./ui/Primitives";
+import { useToast } from "./ui/Toast";
 
 interface HistoryViewProps {
   roster: RosterData | null;
 }
 
+function shiftIsoDate(isoDate: string, deltaDays: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 export function HistoryView({ roster }: HistoryViewProps) {
+  const { showToast } = useToast();
   const today = useMemo(() => getBucharestDate(), []);
   const monthStart = `${today.slice(0, 7)}-01`;
 
@@ -35,7 +55,6 @@ export function HistoryView({ roster }: HistoryViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportingType, setExportingType] = useState<"daily" | "downtime" | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!fromDate || !toDate) return;
@@ -74,282 +93,354 @@ export function HistoryView({ roster }: HistoryViewProps) {
 
   const handleExport = async (type: "daily" | "downtime") => {
     setExportingType(type);
-    setExportError(null);
     try {
       await downloadHistoryExport({ type, from: fromDate, to: toDate });
+      showToast({
+        tone: "success",
+        title: type === "daily" ? "Daily Tasks exported" : "Downtime exported",
+        description: `${fromDate} to ${toDate} (.xlsx)`,
+      });
     } catch (err) {
-      setExportError(getErrorMessage(err));
+      showToast({
+        tone: "error",
+        title: "Excel export failed",
+        description: getErrorMessage(err),
+      });
     } finally {
       setExportingType(null);
     }
   };
 
+  const applyPreset = (preset: "today" | "7d" | "month") => {
+    if (preset === "today") {
+      setFromDate(today);
+      setToDate(today);
+    } else if (preset === "7d") {
+      setFromDate(shiftIsoDate(today, -6));
+      setToDate(today);
+    } else {
+      setFromDate(monthStart);
+      setToDate(today);
+    }
+  };
+
+  const hasActiveFilters = Boolean(employeeFilter || taskSearch.trim() || category !== "ALL");
+
   return (
-    <div className="space-y-4">
-      {/* Controls & Export Bar */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">From Date</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
-              />
-            </div>
+    <div className="space-y-6">
+      {/* Page Header & Distinct Export Actions */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-100 sm:text-2xl">
+            Activity History
+          </h1>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Search completed records and export genuine Excel reports ({fromDate} → {toDate})
+          </p>
+        </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">To Date</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
-              />
-            </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="emerald"
+            size="md"
+            disabled={exportingType !== null || !fromDate || !toDate}
+            onClick={() => void handleExport("daily")}
+          >
+            {exportingType === "daily" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>Export Daily Tasks</span>
+          </Button>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Category</label>
-              <div className="relative">
-                <Filter className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as HistoryCategory)}
-                  className="w-full appearance-none rounded-lg border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
-                >
-                  <option value="ALL">All Categories</option>
-                  <option value="DAILY">Daily Tasks</option>
-                  <option value="MAINTENANCE">Downtime</option>
-                </select>
-              </div>
-            </div>
+          <Button
+            variant="secondary"
+            size="md"
+            className="border-amber-500/35 bg-amber-500/10 text-amber-200 hover:border-amber-500/50 hover:bg-amber-500/20"
+            disabled={exportingType !== null || !fromDate || !toDate}
+            onClick={() => void handleExport("downtime")}
+          >
+            {exportingType === "downtime" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            <span>Export Downtime</span>
+          </Button>
+        </div>
+      </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Employee</label>
-              <select
-                value={employeeFilter}
-                onChange={(e) => setEmployeeFilter(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
+      {/* Filters Panel */}
+      <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Category Segmented Filter */}
+          <div className="inline-flex rounded-xl border border-white/[0.08] bg-surface-input p-1">
+            {(
+              [
+                { id: "ALL", label: "All Activity" },
+                { id: "DAILY", label: "Daily Tasks" },
+                { id: "MAINTENANCE", label: "Downtime" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setCategory(opt.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  category === opt.id
+                    ? "bg-white/[0.1] text-slate-100"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
               >
-                <option value="">All Employees</option>
-                {employeeOptions.map((emp) => (
-                  <option key={emp} value={emp}>
-                    {emp}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-400">Task Search</label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <input
-                  type="text"
-                  value={taskSearch}
-                  onChange={(e) => setTaskSearch(e.target.value)}
-                  placeholder="Filter by title..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-            </div>
+                {opt.label}
+              </button>
+            ))}
           </div>
 
-          {/* Export Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Date Quick Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[11px] font-medium text-slate-500">Range:</span>
             <button
               type="button"
-              onClick={() => void loadHistory()}
-              disabled={loading}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-700 disabled:opacity-50"
+              onClick={() => applyPreset("today")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                fromDate === today && toDate === today
+                  ? "bg-amber-500/15 text-amber-300"
+                  : "bg-white/[0.04] text-slate-400 hover:text-slate-200"
+              }`}
             >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset("7d")}
+              className="rounded-lg bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-slate-400 transition hover:text-slate-200"
+            >
+              Last 7d
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset("month")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                fromDate === monthStart && toDate === today
+                  ? "bg-amber-500/15 text-amber-300"
+                  : "bg-white/[0.04] text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              This Month
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-400">From Date</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className={inputClassName}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-400">To Date</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className={inputClassName}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-400">Technician</label>
+            <select
+              value={employeeFilter}
+              onChange={(e) => setEmployeeFilter(e.target.value)}
+              className={selectClassName}
+            >
+              <option value="">All Technicians</option>
+              {employeeOptions.map((emp) => (
+                <option key={emp} value={emp}>
+                  {emp}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-medium text-slate-400">Task Search</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
+                placeholder="Search by task title..."
+                className={`${inputClassName} pl-9 pr-8`}
+              />
+              {taskSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTaskSearch("")}
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1 text-xs text-slate-400">
+          <span>
+            <strong className="font-mono tabular-nums text-slate-200">{items.length}</strong>{" "}
+            record{items.length === 1 ? "" : "s"} found
+          </span>
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmployeeFilter("");
+                  setTaskSearch("");
+                  setCategory("ALL");
+                }}
+                className="text-xs font-medium text-amber-400 hover:text-amber-300"
+              >
+                Reset filters
+              </button>
+            )}
+            <Button variant="ghost" onClick={() => void loadHistory()} disabled={loading}>
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={exportingType !== null || !fromDate || !toDate}
-              onClick={() => void handleExport("daily")}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/25 disabled:opacity-50"
-            >
-              {exportingType === "daily" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              <span>Export Daily Tasks .xlsx</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={exportingType !== null || !fromDate || !toDate}
-              onClick={() => void handleExport("downtime")}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/25 disabled:opacity-50"
-            >
-              {exportingType === "downtime" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              <span>Export Downtimes .xlsx</span>
-            </button>
+              Refresh
+            </Button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="flex items-center gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
 
-      {exportError && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
-          <span>Export error: {exportError}</span>
+      {loading && items.length === 0 ? (
+        <div className="space-y-3">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
-      )}
-
-      {/* Results Summary */}
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>
-          Showing <strong className="text-slate-200">{items.length}</strong> record
-          {items.length === 1 ? "" : "s"} ({fromDate} to {toDate})
-        </span>
-      </div>
-
-      {/* Desktop Table */}
-      <div className="hidden overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 md:block">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-800 bg-slate-950/70 text-xs uppercase tracking-wider text-slate-400">
-              <tr>
-                <th className="px-4 py-3 font-medium">Date / Schedule</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Task</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Completed By</th>
-                <th className="px-4 py-3 font-medium">Completed At (Bucharest)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/70">
-              {loading && items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                    <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-amber-400" />
-                    Loading history...
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                    No history records match the current filters.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => {
-                  const isCompleted = item.status === "Completed";
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-800/40">
-                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-300">
-                        <div>{item.scheduledDate}</div>
-                        <div className="text-slate-500">
-                          {item.taskType === "DAILY"
-                            ? item.scheduledTime ?? "—"
-                            : item.window ?? "—"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${
-                            item.taskType === "DAILY"
-                              ? "border-slate-700 bg-slate-800 text-slate-200"
-                              : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                          }`}
-                        >
-                          {item.taskType === "DAILY" ? "Daily" : "Downtime"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-100">{item.taskTitle}</td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {isCompleted ? (
-                          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
-                            <Clock className="h-3.5 w-3.5" />
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-200">{item.completedBy ?? "—"}</td>
-                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-400">
-                        {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="space-y-2.5 md:hidden">
-        {loading && items.length === 0 ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-center text-sm text-slate-400">
-            Loading history...
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={<History className="h-5 w-5" />}
+          title="No activity records match your filters"
+          description="Try expanding the date range or clearing the technician/task filters."
+        />
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <div className="hidden overflow-hidden rounded-2xl border border-white/[0.08] bg-surface md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-white/[0.07] bg-surface-input text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Scheduled</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Task</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Completed By</th>
+                    <th className="px-4 py-3">Completed At (Bucharest)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {items.map((item) => {
+                    const isCompleted = item.status === "Completed";
+                    return (
+                      <tr key={item.id} className="transition hover:bg-white/[0.025]">
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-slate-300">
+                          <div>{item.scheduledDate}</div>
+                          <div className="text-slate-500">
+                            {item.taskType === "DAILY"
+                              ? item.scheduledTime ?? "—"
+                              : item.window ?? "—"}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <StatusBadge tone={item.taskType === "DAILY" ? "neutral" : "amber"}>
+                            {item.taskType === "DAILY" ? "Daily" : "Downtime"}
+                          </StatusBadge>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-slate-100">{item.taskTitle}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {isCompleted ? (
+                            <StatusBadge tone="emerald">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Completed
+                            </StatusBadge>
+                          ) : (
+                            <StatusBadge tone="amber">
+                              <Clock className="h-3 w-3" />
+                              Pending
+                            </StatusBadge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-200">{item.completedBy ?? "—"}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-slate-400">
+                          {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-center text-sm text-slate-400">
-            No history records match the current filters.
-          </div>
-        ) : (
-          items.map((item) => {
-            const isCompleted = item.status === "Completed";
-            return (
-              <div
-                key={item.id}
-                className="rounded-xl border border-slate-800 bg-slate-900/70 p-3.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-100">{item.taskTitle}</div>
-                    <div className="mt-0.5 font-mono text-xs text-slate-400">
-                      {item.scheduledDate} ·{" "}
-                      {item.taskType === "DAILY" ? item.scheduledTime ?? "—" : item.window ?? "—"}
+
+          {/* Mobile Card List */}
+          <div className="space-y-2.5 md:hidden">
+            {items.map((item) => {
+              const isCompleted = item.status === "Completed";
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/[0.08] bg-surface-card p-3.5 shadow-card"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-xs font-medium tabular-nums text-slate-300">
+                        {item.scheduledDate}
+                        {item.taskType === "DAILY" && item.scheduledTime
+                          ? ` · ${item.scheduledTime}`
+                          : item.window
+                            ? ` · ${item.window}`
+                            : ""}
+                      </span>
+                      <StatusBadge tone={item.taskType === "DAILY" ? "neutral" : "amber"}>
+                        {item.taskType === "DAILY" ? "Daily" : "Downtime"}
+                      </StatusBadge>
                     </div>
+                    <StatusBadge tone={isCompleted ? "emerald" : "amber"}>
+                      {item.status}
+                    </StatusBadge>
                   </div>
-                  {isCompleted ? (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Completed
+                  <div className="mt-2 text-sm font-semibold text-slate-100">{item.taskTitle}</div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                    <span className="font-medium text-slate-200">{item.completedBy ?? "—"}</span>
+                    <span className="font-mono tabular-nums">
+                      {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
                     </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
-                      <Clock className="h-3.5 w-3.5" />
-                      Pending
-                    </span>
-                  )}
+                  </div>
                 </div>
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-2 text-xs text-slate-300">
-                  <span>{item.completedBy ?? "Uncompleted"}</span>
-                  <span className="font-mono text-slate-400">
-                    {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

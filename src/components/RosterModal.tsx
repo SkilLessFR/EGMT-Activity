@@ -1,8 +1,11 @@
 import { useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, FileJson, Upload, Users, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileJson, Upload, Users } from "lucide-react";
 import { getErrorMessage, uploadRoster } from "../api/client";
 import { rosterMonthToKey } from "../shared/timezone";
 import type { RosterData, RosterShift } from "../shared/types";
+import { Modal } from "./ui/Modal";
+import { Button, StatusBadge } from "./ui/Primitives";
+import { useToast } from "./ui/Toast";
 
 interface RosterModalProps {
   isOpen: boolean;
@@ -88,13 +91,19 @@ export function RosterModal({
   currentRoster,
   onRosterUploaded,
 }: RosterModalProps) {
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [parsedRoster, setParsedRoster] = useState<RosterData | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    setParsedRoster(null);
+    setValidationErrors([]);
+    setServerError(null);
+    onClose();
+  };
 
   const handleFileChange = async (file: File | undefined) => {
     setValidationErrors([]);
@@ -126,8 +135,12 @@ export function RosterModal({
     try {
       const res = await uploadRoster(parsedRoster);
       onRosterUploaded(res.roster, res.monthKey);
-      setParsedRoster(null);
-      onClose();
+      showToast({
+        tone: "success",
+        title: `Roster ${res.monthKey} updated`,
+        description: `${res.roster.employees.length} technicians loaded for ${res.roster.dateColumns.length} days.`,
+      });
+      handleClose();
     } catch (err) {
       setServerError(getErrorMessage(err));
     } finally {
@@ -136,139 +149,124 @@ export function RosterModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <div className="flex items-center gap-2.5">
-            <FileJson className="h-5 w-5 text-amber-400" />
-            <h2 className="text-base font-semibold text-slate-100">Shift Roster Management</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-            aria-label="Close modal"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-5">
-          {currentRoster && (
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3.5">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>Active Roster in View</span>
-                <span className="font-mono text-emerald-400">
-                  {rosterMonthToKey(currentRoster.year, currentRoster.month)}
-                </span>
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-200">
-                <span className="font-medium">{currentRoster.fileName}</span>
-                <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                  <Users className="h-3.5 w-3.5" />
-                  {currentRoster.employees.length} employees · {currentRoster.dateColumns.length} days
-                </span>
-              </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Monthly Shift Roster"
+      subtitle="Upload Schedule_YYYY_MM.json to update technician shift eligibility"
+      icon={<FileJson className="h-4 w-4" />}
+      maxWidthClass="max-w-xl"
+    >
+      <div className="space-y-4">
+        {currentRoster && (
+          <div className="rounded-xl border border-white/[0.07] bg-surface-input p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-400">Currently Loaded</span>
+              <StatusBadge tone="emerald">
+                {rosterMonthToKey(currentRoster.year, currentRoster.month)}
+              </StatusBadge>
             </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-medium uppercase tracking-wider text-slate-400">
-              Upload Schedule JSON (Schedule_YYYY_MM.json)
-            </label>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-950/50 px-4 py-6 text-center transition hover:border-amber-500/60 hover:bg-slate-900"
-            >
-              <Upload className="h-7 w-7 text-amber-400" />
-              <p className="mt-2 text-sm font-medium text-slate-200">
-                Click to select roster JSON file
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                Supports shifts M, A, N, MID, OFF with 0-based month &amp; isoDate columns
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json,application/json"
-                className="hidden"
-                onChange={(e) => handleFileChange(e.target.files?.[0])}
-              />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-200">
+              <span className="font-medium">{currentRoster.fileName}</span>
+              <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <Users className="h-3.5 w-3.5" />
+                {currentRoster.employees.length} staff · {currentRoster.dateColumns.length} days
+              </span>
             </div>
           </div>
+        )}
 
-          {validationErrors.length > 0 && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3.5 text-sm text-red-200">
-              <div className="flex items-center gap-2 font-medium text-red-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>Validation Errors</span>
-              </div>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-200">
-                {validationErrors.map((err, i) => (
-                  <li key={i}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {serverError && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3.5 text-xs text-red-200">
-              <div className="flex items-center gap-2 font-medium text-red-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>Server Upload Error</span>
-              </div>
-              <p className="mt-1">{serverError}</p>
-            </div>
-          )}
-
-          {parsedRoster && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5">
-              <div className="flex items-center gap-2 text-sm font-medium text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Ready to upload: {parsedRoster.fileName}</span>
-              </div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-300">
-                <div className="rounded bg-slate-900/80 px-2.5 py-1.5">
-                  <div className="text-slate-500">Month</div>
-                  <div className="font-mono font-medium">
-                    {rosterMonthToKey(parsedRoster.year, parsedRoster.month)}
-                  </div>
-                </div>
-                <div className="rounded bg-slate-900/80 px-2.5 py-1.5">
-                  <div className="text-slate-500">Employees</div>
-                  <div className="font-mono font-medium">{parsedRoster.employees.length}</div>
-                </div>
-                <div className="rounded bg-slate-900/80 px-2.5 py-1.5">
-                  <div className="text-slate-500">Days</div>
-                  <div className="font-mono font-medium">{parsedRoster.dateColumns.length}</div>
-                </div>
-              </div>
-              <div className="mt-2 max-h-24 overflow-y-auto text-xs text-slate-400">
-                Staff: {parsedRoster.employees.join(", ")}
-              </div>
-            </div>
-          )}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.15] bg-surface-input/70 px-4 py-7 text-center transition hover:border-amber-400/50 hover:bg-white/[0.02]"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 transition group-hover:scale-105">
+            <Upload className="h-5 w-5" />
+          </div>
+          <p className="mt-2.5 text-sm font-medium text-slate-200">
+            Select roster JSON file
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Supports shifts M, A, N, MID, OFF with 0-based month &amp; isoDate columns
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => void handleFileChange(e.target.files?.[0])}
+          />
         </div>
 
-        <div className="flex items-center justify-end gap-2.5 border-t border-slate-800 px-5 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700"
-          >
+        {validationErrors.length > 0 && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-200">
+            <div className="flex items-center gap-2 font-medium text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Validation Errors</span>
+            </div>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-200/90">
+              {validationErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {serverError && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-200">
+            <div className="flex items-center gap-2 font-medium text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Upload Failed</span>
+            </div>
+            <p className="mt-1">{serverError}</p>
+          </div>
+        )}
+
+        {parsedRoster && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Validated: {parsedRoster.fileName}</span>
+            </div>
+            <div className="mt-2.5 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg bg-black/25 px-3 py-2">
+                <div className="text-slate-400">Month</div>
+                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+                  {rosterMonthToKey(parsedRoster.year, parsedRoster.month)}
+                </div>
+              </div>
+              <div className="rounded-lg bg-black/25 px-3 py-2">
+                <div className="text-slate-400">Employees</div>
+                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+                  {parsedRoster.employees.length}
+                </div>
+              </div>
+              <div className="rounded-lg bg-black/25 px-3 py-2">
+                <div className="text-slate-400">Days</div>
+                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+                  {parsedRoster.dateColumns.length}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2.5 max-h-24 overflow-y-auto text-xs leading-relaxed text-slate-300/80">
+              {parsedRoster.employees.join(", ")}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 border-t border-white/[0.07] pt-4">
+          <Button variant="secondary" onClick={handleClose}>
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
             disabled={!parsedRoster || isUploading}
-            onClick={handleUpload}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => void handleUpload()}
           >
-            <Upload className="h-4 w-4" />
-            <span>{isUploading ? "Uploading..." : "Save Roster"}</span>
-          </button>
+            {isUploading ? "Uploading..." : "Save Roster"}
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
