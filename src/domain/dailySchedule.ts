@@ -401,7 +401,8 @@ function isTimeInCurrentWindow(
  * - 22:00–23:59 ("first"): shows Night/ALL_ACTIVE tasks in 22:00–23:59 of selectedDate.
  * - 00:00–05:59 ("second"):
  *   - On selectedDate === nowDate (second day): shows Night/ALL_ACTIVE tasks in 00:00–05:59
- *     of selectedDate, plus overnight dueUntil or completed Night tasks from prevDate.
+ *     of selectedDate, plus all first-half (22:00–23:59) and overnight dueUntil Night/ALL_ACTIVE
+ *     tasks from prevDate so the entire 22:00–06:00 shift stays visible in one place.
  *   - On selectedDate < nowDate (e.g. stepping back to first day): shows 22:00–23:59 of
  *     selectedDate rather than 00:00–05:59 of the previous night's shift.
  */
@@ -452,9 +453,8 @@ export function filterOccurrencesForCurrentShift(params: {
       const isOvernightDueUntil =
         Boolean(occ.dueUntil) &&
         parseTimeToMinutes(occ.dueUntil!) < parseTimeToMinutes(occ.scheduledTime);
-      const isFirstHalfCompleted =
-        parseTimeToMinutes(occ.scheduledTime) >= 22 * 60 && occ.status === "completed";
-      return isOvernightDueUntil || isFirstHalfCompleted;
+      const isFirstHalfNight = parseTimeToMinutes(occ.scheduledTime) >= 22 * 60;
+      return isOvernightDueUntil || isFirstHalfNight;
     });
     return [...carriedFromPrev, ...filtered];
   }

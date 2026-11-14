@@ -546,7 +546,7 @@ describe("dailySchedule", () => {
       expect(filtered.map((o) => o.taskId)).toEqual(["t-n-window", "t-n-first"]);
     });
 
-    it("switches to second day after 00:00 and includes overnight dueUntil tasks from first day", () => {
+    it("switches to second day after 00:00 and includes first-half and overnight dueUntil tasks from first day", () => {
       const day2Occs = generateDailyOccurrences({
         tasks: sampleTasks,
         selectedDate: "2026-11-15",
@@ -570,9 +570,12 @@ describe("dailySchedule", () => {
       });
       expect(filtered.map((o) => `${o.taskId}@${o.scheduledDate}`)).toEqual([
         "t-n-window@2026-11-14",
+        "t-n-first@2026-11-14",
         "t-n-second@2026-11-15",
       ]);
       expect(filtered[0].status).toBe("dueNow");
+      expect(filtered[1].status).toBe("overdue");
+      expect(filtered[2].status).toBe("upcoming");
     });
 
     it("shows a 23:00-range Night completion on both Day 1 and Day 2, and hides Day 1's 03:00 task when stepping back", () => {
