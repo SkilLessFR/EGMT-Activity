@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  ClipboardCheck,
-  History,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { ClipboardCheck, History, Users, Wrench } from "lucide-react";
 import { getBucharestNowParts } from "../shared/timezone";
 import type { RosterData, Shift } from "../shared/types";
 
@@ -62,61 +57,51 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-canvas/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
-          {/* Left: Brand + Desktop Navigation */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
-                <Wrench className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-semibold tracking-tight text-slate-100 sm:text-base">
-                EGMT Activity
-              </span>
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-canvas/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          {/* Left: wordmark + desktop navigation */}
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-[3px] bg-zinc-100" aria-hidden="true" />
+              <span className="text-sm font-semibold tracking-tight text-zinc-100">EGMT</span>
+              <span className="hidden text-sm text-zinc-500 sm:inline">Activity</span>
             </div>
 
-            <nav
-              className="hidden items-center gap-1 rounded-xl border border-white/[0.07] bg-surface p-1 md:flex"
-              aria-label="Primary sections"
-            >
+            <nav className="hidden items-center gap-0.5 md:flex" aria-label="Primary sections">
               {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
                 const isActive = activeSection === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => onSelectSection(item.id)}
-                    className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
+                    aria-current={isActive ? "page" : undefined}
+                    className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition ${
                       isActive
-                        ? "bg-white/[0.1] text-slate-100 shadow-sm"
-                        : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                        ? "bg-white/[0.07] text-zinc-100"
+                        : "text-zinc-500 hover:text-zinc-200"
                     }`}
                   >
-                    <Icon className={`h-3.5 w-3.5 ${isActive ? "text-amber-400" : ""}`} />
-                    <span>{item.label}</span>
+                    {item.label}
                   </button>
                 );
               })}
             </nav>
           </div>
 
-          {/* Right: Compact Shift/Time Status + Roster Access */}
-          <div className="flex items-center gap-2">
+          {/* Right: shift + clock as plain text, roster as a quiet action */}
+          <div className="flex items-center gap-1.5">
             <div
-              className="flex items-center gap-2 rounded-lg border border-white/[0.07] bg-surface px-2.5 py-1.5 text-xs"
+              className="flex items-center gap-2 px-2 text-xs text-zinc-400"
               title={`${SHIFT_NAMES[primary]} · Europe/Bucharest`}
             >
-              <span className="inline-flex items-center gap-1.5 font-medium text-amber-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                <span>
-                  {primary}
-                  {midActive ? "+MID" : ""}
-                </span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              <span className="font-medium text-zinc-200">
+                {primary}
+                {midActive ? "+MID" : ""}
               </span>
-              <span className="text-white/15">|</span>
-              <span className="font-mono tabular-nums text-slate-300">
-                <span className="hidden sm:inline">{nowParts.date} · </span>
+              <span className="font-mono tabular-nums">
+                <span className="hidden text-zinc-500 sm:inline">{nowParts.date} · </span>
                 {nowParts.time}
               </span>
             </div>
@@ -124,14 +109,18 @@ export function Header({
             <button
               type="button"
               onClick={onOpenRosterModal}
-              title={roster ? `Roster ${rosterMonthKey} loaded (${roster.employees.length} staff)` : `Upload roster for ${rosterMonthKey}`}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+              title={
                 roster
-                  ? "border-white/[0.08] bg-surface text-slate-300 hover:border-white/[0.15] hover:text-slate-100"
-                  : "border-amber-500/35 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                  ? `Roster ${rosterMonthKey} loaded (${roster.employees.length} staff)`
+                  : `Upload roster for ${rosterMonthKey}`
+              }
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                roster
+                  ? "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                  : "bg-amber-500/10 text-amber-300 hover:bg-amber-500/15"
               }`}
             >
-              <Users className={`h-3.5 w-3.5 ${roster ? "text-emerald-400" : "text-amber-400"}`} />
+              <Users className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">
                 {roster ? `${roster.employees.length} Staff` : "Load Roster"}
               </span>
@@ -140,9 +129,9 @@ export function Header({
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile bottom navigation */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.08] bg-canvas/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.06] bg-canvas/90 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl md:hidden"
         aria-label="Mobile navigation"
       >
         <div className="grid grid-cols-3 gap-1">
@@ -154,13 +143,18 @@ export function Header({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectSection(item.id)}
-                className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] font-medium transition ${
-                  isActive
-                    ? "bg-white/[0.09] text-amber-300"
-                    : "text-slate-400 hover:text-slate-200"
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex flex-col items-center justify-center gap-1 rounded-lg py-2 text-[11px] font-medium transition ${
+                  isActive ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                {isActive && (
+                  <span
+                    className="absolute -top-1.5 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-zinc-100"
+                    aria-hidden="true"
+                  />
+                )}
+                <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.25 : 1.75} />
                 <span>{item.shortLabel}</span>
               </button>
             );

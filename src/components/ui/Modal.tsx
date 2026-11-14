@@ -41,30 +41,30 @@ export function Modal({
       aria-modal="true"
     >
       <div
-        className={`animate-modal-in flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-white/[0.1] bg-surface shadow-modal sm:rounded-2xl ${maxWidthClass}`}
+        className={`animate-modal-in flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-modal sm:rounded-2xl ${maxWidthClass}`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
+          <div className="flex items-center gap-3">
             {icon && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-amber-400">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-zinc-300">
                 {icon}
               </div>
             )}
             <div>
-              <h2 className="text-base font-semibold tracking-tight text-slate-100">{title}</h2>
-              {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+              <h2 className="text-[15px] font-semibold tracking-tight text-zinc-100">{title}</h2>
+              {subtitle && <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p>}
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/[0.07] hover:text-slate-100"
+            className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-100"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
+        <div className="overflow-y-auto px-5 py-5">{children}</div>
       </div>
     </div>
   );
@@ -97,14 +97,14 @@ export function ConfirmDialog({
       role="alertdialog"
       aria-modal="true"
     >
-      <div className="animate-modal-in w-full max-w-sm rounded-2xl border border-white/[0.1] bg-surface-elevated p-5 shadow-modal">
+      <div className="animate-modal-in w-full max-w-sm rounded-2xl bg-surface-elevated p-5 shadow-modal">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15 text-red-400">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">{description}</p>
+            <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p>
           </div>
         </div>
 
@@ -113,7 +113,7 @@ export function ConfirmDialog({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-lg border border-white/[0.1] bg-white/[0.04] px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:opacity-50"
+            className="rounded-lg px-3.5 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.07] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -121,7 +121,7 @@ export function ConfirmDialog({
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+            className="rounded-lg bg-red-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-red-400 disabled:opacity-50"
           >
             {busy ? "Deleting..." : confirmLabel}
           </button>

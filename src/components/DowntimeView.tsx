@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -13,7 +12,6 @@ import {
   Settings2,
   Sun,
   Trash2,
-  Users,
 } from "lucide-react";
 import {
   createCompletion,
@@ -47,7 +45,7 @@ import {
   Button,
   EmptyState,
   SkeletonCard,
-  StatusBadge,
+  StatusDot,
   inputClassName,
 } from "./ui/Primitives";
 import { useToast } from "./ui/Toast";
@@ -159,14 +157,14 @@ function MaintenanceFormModal({
       >
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
           {error && (
-            <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
+            <div className="flex items-start gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-200">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
               <span>{error}</span>
             </div>
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-300">
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
               Task Title <span className="text-red-400">*</span>
             </label>
             <input
@@ -180,8 +178,8 @@ function MaintenanceFormModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-300">
-              Description <span className="text-slate-500">(optional)</span>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+              Description <span className="text-zinc-500">(optional)</span>
             </label>
             <textarea
               rows={2}
@@ -193,60 +191,70 @@ function MaintenanceFormModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-300">
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
               Maintenance Window
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setWindowVal("MORNING")}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition ${
                   windowVal === "MORNING"
-                    ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
-                    : "border-white/[0.08] bg-surface-input text-slate-300 hover:border-white/[0.15]"
+                    ? "border-white/25 bg-white/[0.1] text-zinc-100"
+                    : "border-white/[0.08] bg-surface-input text-zinc-400 hover:border-white/[0.14] hover:text-zinc-200"
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Sun className="h-4 w-4 text-amber-400" />
+                  <Sun className="h-3.5 w-3.5" />
                   <span>Morning (M)</span>
                 </div>
-                <span className="text-[11px] text-slate-400">1st Mon–Wed · 06:00–14:00</span>
+                <span className="text-[11px] text-zinc-500">1st Mon–Wed · 06:00–14:00</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setWindowVal("NIGHT")}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition ${
                   windowVal === "NIGHT"
-                    ? "border-sky-400/70 bg-sky-500/15 text-sky-200"
-                    : "border-white/[0.08] bg-surface-input text-slate-300 hover:border-white/[0.15]"
+                    ? "border-white/25 bg-white/[0.1] text-zinc-100"
+                    : "border-white/[0.08] bg-surface-input text-zinc-400 hover:border-white/[0.14] hover:text-zinc-200"
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Moon className="h-4 w-4 text-sky-400" />
+                  <Moon className="h-3.5 w-3.5" />
                   <span>Night (N)</span>
                 </div>
-                <span className="text-[11px] text-slate-400">3rd Mon–Wed · 22:00–06:00</span>
+                <span className="text-[11px] text-zinc-500">3rd Mon–Wed · 22:00–06:00</span>
               </button>
             </div>
           </div>
 
-          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-white/[0.07] bg-surface-input px-3.5 py-2.5">
+          <div className="flex items-center justify-between border-t border-white/[0.06] pt-3.5">
             <div>
-              <div className="text-sm font-medium text-slate-200">Definition Enabled</div>
-              <div className="text-xs text-slate-400">
+              <div className="text-sm font-medium text-zinc-200">Definition Enabled</div>
+              <div className="text-xs text-zinc-500">
                 Historical records remain preserved if disabled
               </div>
             </div>
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-600 bg-surface-input text-amber-500 focus:ring-amber-400"
-            />
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              aria-label="Definition Enabled"
+              onClick={() => setEnabled((prev) => !prev)}
+              className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition ${
+                enabled ? "bg-zinc-100" : "bg-white/[0.1]"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 rounded-full transition-transform ${
+                  enabled ? "translate-x-5 bg-zinc-950" : "translate-x-1 bg-zinc-400"
+                }`}
+              />
+            </button>
+          </div>
 
-          <div className="flex items-center justify-between border-t border-white/[0.07] pt-4">
+          <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
             {editingTask ? (
               <Button
                 type="button"
@@ -465,65 +473,55 @@ export function DowntimeView({
       byDate.set(occ.scheduledDate, list);
     }
     const sortedDates = Array.from(byDate.keys()).sort();
+    const doneCount = windowOccurrences.filter((o) => o.status === "completed").length;
 
     return (
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-3">
-          <div className="flex items-center gap-3">
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
-                isMorning
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  : "border-sky-500/30 bg-sky-500/10 text-sky-400"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2.5">
+            <Icon className="h-4 w-4 text-zinc-400" />
             <div>
-              <h2 className="text-base font-semibold text-slate-100">{title}</h2>
-              <p className="text-xs text-slate-400">{subtitle}</p>
+              <h2 className="text-sm font-semibold text-zinc-100">{title}</h2>
+              <p className="text-xs text-zinc-500">{subtitle}</p>
             </div>
           </div>
 
-          <StatusBadge tone={isMorning ? "amber" : "sky"}>
-            {isMorning ? "Shift M" : "Shift N"} · {windowOccurrences.filter((o) => o.status === "completed").length}/{windowOccurrences.length} tasks done
-          </StatusBadge>
+          <span className="font-mono text-xs tabular-nums text-zinc-400">
+            {isMorning ? "Shift M" : "Shift N"} · {doneCount}/{windowOccurrences.length} done
+          </span>
         </div>
 
-        <div className="space-y-5">
+        <div className="divide-y divide-white/[0.06]">
           {sortedDates.map((dateStr) => {
             const dateOccs = byDate.get(dateStr) ?? [];
             const { weekday, dayNum, monthShort } = formatShortDate(dateStr);
 
             return (
-              <div key={dateStr} className="grid grid-cols-1 gap-3 md:grid-cols-[130px_1fr]">
+              <div
+                key={dateStr}
+                className="grid grid-cols-1 gap-3 py-4 first:pt-1 md:grid-cols-[120px_1fr]"
+              >
                 {/* Timeline Date Column */}
-                <div className="flex items-center gap-3 md:flex-col md:items-start md:pt-1">
-                  <div
-                    className={`flex items-baseline gap-1.5 rounded-xl border px-3 py-2 md:w-full ${
-                      isMorning
-                        ? "border-amber-500/25 bg-amber-500/[0.06]"
-                        : "border-sky-500/25 bg-sky-500/[0.06]"
-                    }`}
-                  >
-                    <span className="font-mono text-lg font-bold tabular-nums text-slate-100">
+                <div className="flex items-baseline gap-2 md:flex-col md:gap-0.5 md:pt-0.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-mono text-base font-semibold tabular-nums text-zinc-100">
                       {dayNum}
                     </span>
-                    <span className="text-xs font-medium text-slate-300">
+                    <span className="text-xs font-medium text-zinc-400">
                       {monthShort} · {weekday}
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-slate-500 md:pl-1">
+                  <span className="font-mono text-[11px] tabular-nums text-zinc-600">
                     {dateStr}
                   </span>
                 </div>
 
                 {/* Tasks for this maintenance date */}
-                <div className="space-y-3">
+                <div className="divide-y divide-white/[0.06]">
                   {dateOccs.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/[0.08] bg-surface/40 px-4 py-4 text-xs text-slate-500">
+                    <p className="py-2 text-xs text-zinc-500">
                       No enabled {windowType.toLowerCase()} maintenance tasks for this date.
-                    </div>
+                    </p>
                   ) : (
                     dateOccs.map((occ) => {
                       const completedByMap = new Map(
@@ -537,51 +535,40 @@ export function DowntimeView({
                       return (
                         <article
                           key={occ.occurrenceId}
-                          className={`rounded-2xl border border-white/[0.08] border-l-[3px] bg-surface-card p-4 shadow-card ${
-                            isDoneOverall
-                              ? "border-l-emerald-500"
-                              : isMorning
-                                ? "border-l-amber-400/80"
-                                : "border-l-sky-400/80"
-                          }`}
+                          className="py-3.5 first:pt-0 last:pb-0"
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-base font-semibold text-slate-100">
+                              <h3 className="text-[15px] font-medium text-zinc-100">
                                 {occ.taskTitle}
                               </h3>
                               {occ.taskDescription && (
-                                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
                                   {occ.taskDescription}
                                 </p>
                               )}
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-lg bg-white/[0.05] px-2.5 py-1 font-mono text-xs tabular-nums text-slate-300">
+                            <div className="flex items-center gap-2.5 text-xs">
+                              <span className="font-mono tabular-nums text-zinc-500">
                                 {occ.completionCount}
                                 {occ.eligibleEmployees.length > 0
                                   ? `/${occ.eligibleEmployees.length}`
                                   : ""}{" "}
                                 signed
                               </span>
+                              <span className="text-zinc-700">·</span>
                               {isDoneOverall ? (
-                                <StatusBadge tone="emerald">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Completed
-                                </StatusBadge>
+                                <StatusDot tone="emerald">Completed</StatusDot>
                               ) : (
-                                <StatusBadge tone="amber">
-                                  <Clock className="h-3 w-3" />
-                                  Pending
-                                </StatusBadge>
+                                <StatusDot tone="neutral">Pending</StatusDot>
                               )}
                             </div>
                           </div>
 
-                          <div className="mt-3.5 border-t border-white/[0.06] pt-3">
+                          <div className="mt-3">
                             {allEmployees.length === 0 ? (
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                                 <span>
                                   {roster
                                     ? `No technicians scheduled on ${isMorning ? "M" : "N"} shift on ${dateStr}.`
@@ -591,18 +578,14 @@ export function DowntimeView({
                                   <button
                                     type="button"
                                     onClick={onOpenRosterModal}
-                                    className="font-medium text-amber-400 hover:text-amber-300"
+                                    className="text-zinc-200 underline-offset-2 hover:underline"
                                   >
                                     Load Roster →
                                   </button>
                                 )}
                               </div>
                             ) : (
-                              <div>
-                                <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                                  <Users className="h-3 w-3" />
-                                  <span>Each technician signs independently</span>
-                                </div>
+                              <div className="space-y-1.5">
                                 <div className="flex flex-wrap gap-2">
                                   {allEmployees.map((emp) => {
                                     const completedAt = completedByMap.get(emp);
@@ -621,22 +604,24 @@ export function DowntimeView({
                                             : `Mark completed by ${emp}`
                                         }
                                         onClick={() => void handleComplete(occ, emp)}
-                                        className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
+                                        className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
                                           isEmpDone
-                                            ? "cursor-default border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
-                                            : "border-white/[0.1] bg-white/[0.04] text-slate-100 hover:border-emerald-500/50 hover:bg-emerald-500/15 hover:text-emerald-200 active:scale-[0.98]"
+                                            ? "cursor-default border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                            : "border-white/[0.08] bg-white/[0.03] text-zinc-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 active:scale-[0.98]"
                                         }`}
                                       >
                                         {busy ? (
                                           <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                                        ) : isEmpDone ? (
-                                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                                         ) : (
-                                          <Check className="h-3.5 w-3.5 text-slate-500" />
+                                          <Check
+                                            className={`h-3.5 w-3.5 ${
+                                              isEmpDone ? "text-emerald-400" : "text-zinc-500"
+                                            }`}
+                                          />
                                         )}
                                         <span>{emp}</span>
                                         {completedAt && (
-                                          <span className="font-mono text-[10px] text-emerald-300/75">
+                                          <span className="font-mono text-[11px] tabular-nums text-emerald-300/75">
                                             {formatBucharestDateTime(completedAt).slice(11, 16)}
                                           </span>
                                         )}
@@ -644,6 +629,9 @@ export function DowntimeView({
                                     );
                                   })}
                                 </div>
+                                <p className="text-[11px] text-zinc-600">
+                                  Each technician signs independently
+                                </p>
                               </div>
                             )}
                           </div>
@@ -660,25 +648,34 @@ export function DowntimeView({
     );
   };
 
+  const morningPct =
+    morningOccurrences.length > 0
+      ? Math.round((morningDone / morningOccurrences.length) * 100)
+      : 0;
+  const nightPct =
+    nightOccurrences.length > 0
+      ? Math.round((nightDone / nightOccurrences.length) * 100)
+      : 0;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-100 sm:text-2xl">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
             Downtime Maintenance
           </h1>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-zinc-500">
             Scheduled monthly maintenance windows · {formatMonthTitle(selectedMonth)}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center rounded-xl border border-white/[0.09] bg-surface p-0.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center">
             <button
               type="button"
               onClick={() => setSelectedMonth((m) => shiftMonthKey(m, -1))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100"
               aria-label="Previous month"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -689,19 +686,19 @@ export function DowntimeView({
               onChange={(e) => {
                 if (e.target.value) setSelectedMonth(e.target.value);
               }}
-              className="bg-transparent px-2 py-1 font-mono text-xs font-medium tabular-nums text-slate-100 focus:outline-none sm:text-sm"
+              className="bg-transparent px-1.5 py-1 font-mono text-xs font-medium tabular-nums text-zinc-100 focus:outline-none sm:text-sm"
             />
             <button
               type="button"
               onClick={() => setSelectedMonth((m) => shiftMonthKey(m, 1))}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-100"
               aria-label="Next month"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
-          <Button variant="secondary" onClick={() => setManageModalOpen(true)}>
+          <Button variant="ghost" onClick={() => setManageModalOpen(true)}>
             <Settings2 className="h-3.5 w-3.5" />
             <span>Definitions ({tasks.length})</span>
           </Button>
@@ -719,63 +716,61 @@ export function DowntimeView({
         </div>
       </div>
 
-      {/* Monthly Window Overview Cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Monthly Window Summary Strip */}
+      <div className="grid grid-cols-1 gap-4 border-y border-white/[0.06] py-3.5 sm:grid-cols-2">
         <button
           type="button"
           onClick={() => setWindowFilter((w) => (w === "MORNING" ? "ALL" : "MORNING"))}
-          className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
-            windowFilter === "MORNING"
-              ? "border-amber-400/50 bg-amber-500/10"
-              : "border-white/[0.07] bg-surface hover:border-white/[0.13]"
-          }`}
+          className="group space-y-2 text-left transition hover:opacity-90"
         >
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
-              <Sun className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-zinc-200">
+              <Sun className="h-3.5 w-3.5 text-zinc-400" />
               <span>Morning Window (M)</span>
+              <span className="font-mono text-[11px] tabular-nums text-zinc-500">
+                {monthDates.MORNING.join(" · ")}
+              </span>
             </div>
-            <div className="mt-1.5 font-mono text-xs text-slate-300">
-              {monthDates.MORNING.join(" · ")}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-lg font-semibold tabular-nums text-slate-100">
+            <span className="font-mono text-xs tabular-nums text-zinc-300">
               {morningDone}/{morningOccurrences.length}
-            </div>
-            <div className="text-[11px] text-slate-400">completed</div>
+            </span>
+          </div>
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full bg-zinc-100 transition-all"
+              style={{ width: `${morningPct}%` }}
+            />
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setWindowFilter((w) => (w === "NIGHT" ? "ALL" : "NIGHT"))}
-          className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
-            windowFilter === "NIGHT"
-              ? "border-sky-400/50 bg-sky-500/10"
-              : "border-white/[0.07] bg-surface hover:border-white/[0.13]"
-          }`}
+          className="group space-y-2 text-left transition hover:opacity-90"
         >
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-400">
-              <Moon className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-zinc-200">
+              <Moon className="h-3.5 w-3.5 text-zinc-400" />
               <span>Night Window (N)</span>
+              <span className="font-mono text-[11px] tabular-nums text-zinc-500">
+                {monthDates.NIGHT.join(" · ")}
+              </span>
             </div>
-            <div className="mt-1.5 font-mono text-xs text-slate-300">
-              {monthDates.NIGHT.join(" · ")}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-mono text-lg font-semibold tabular-nums text-slate-100">
+            <span className="font-mono text-xs tabular-nums text-zinc-300">
               {nightDone}/{nightOccurrences.length}
-            </div>
-            <div className="text-[11px] text-slate-400">completed</div>
+            </span>
+          </div>
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full bg-zinc-100 transition-all"
+              style={{ width: `${nightPct}%` }}
+            />
           </div>
         </button>
       </div>
 
       {/* Window Filter Pills */}
-      <div className="flex items-center gap-1.5">
+      <div className="inline-flex rounded-lg bg-white/[0.04] p-1">
         {(
           [
             { id: "ALL", label: "All Windows" },
@@ -789,8 +784,8 @@ export function DowntimeView({
             onClick={() => setWindowFilter(tab.id)}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               windowFilter === tab.id
-                ? "bg-white/[0.1] text-slate-100"
-                : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                ? "bg-zinc-100 font-semibold text-zinc-950"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             {tab.label}
@@ -799,14 +794,14 @@ export function DowntimeView({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="flex items-center gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="space-y-3">
+        <div className="border-t border-white/[0.06]">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -859,24 +854,24 @@ export function DowntimeView({
       >
         <div className="space-y-3">
           {tasks.length === 0 ? (
-            <p className="py-6 text-center text-xs text-slate-400">
+            <p className="py-6 text-center text-xs text-zinc-500">
               No maintenance definitions configured yet.
             </p>
           ) : (
-            <div className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.08] bg-surface-input">
+            <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-slate-100">
+                      <span className="truncate text-sm font-medium text-zinc-100">
                         {task.title}
                       </span>
-                      {!task.enabled && <StatusBadge tone="neutral">Disabled</StatusBadge>}
+                      {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
                     </div>
-                    <div className="mt-1 font-mono text-xs text-slate-400">
+                    <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
                       {task.window === "MORNING"
                         ? "MORNING · M Shift · 1st Mon–Wed"
                         : "NIGHT · N Shift · 3rd Mon–Wed"}
@@ -897,7 +892,7 @@ export function DowntimeView({
               ))}
             </div>
           )}
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end border-t border-white/[0.06] pt-3">
             <Button
               variant="primary"
               onClick={() => {

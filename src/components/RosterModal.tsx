@@ -4,7 +4,7 @@ import { getErrorMessage, uploadRoster } from "../api/client";
 import { rosterMonthToKey } from "../shared/timezone";
 import type { RosterData, RosterShift } from "../shared/types";
 import { Modal } from "./ui/Modal";
-import { Button, StatusBadge } from "./ui/Primitives";
+import { Button, StatusDot } from "./ui/Primitives";
 import { useToast } from "./ui/Toast";
 
 interface RosterModalProps {
@@ -159,18 +159,19 @@ export function RosterModal({
     >
       <div className="space-y-4">
         {currentRoster && (
-          <div className="rounded-xl border border-white/[0.07] bg-surface-input p-3.5">
+          <div className="border-b border-white/[0.06] pb-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400">Currently Loaded</span>
-              <StatusBadge tone="emerald">
+              <span className="text-xs text-zinc-500">Currently Loaded</span>
+              <StatusDot tone="emerald" className="font-mono tabular-nums text-zinc-200">
                 {rosterMonthToKey(currentRoster.year, currentRoster.month)}
-              </StatusBadge>
+              </StatusDot>
             </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-200">
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-200">
               <span className="font-medium">{currentRoster.fileName}</span>
-              <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
                 <Users className="h-3.5 w-3.5" />
-                {currentRoster.employees.length} staff · {currentRoster.dateColumns.length} days
+                <span className="font-mono tabular-nums">{currentRoster.employees.length}</span> staff ·{" "}
+                <span className="font-mono tabular-nums">{currentRoster.dateColumns.length}</span> days
               </span>
             </div>
           </div>
@@ -178,15 +179,15 @@ export function RosterModal({
 
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.15] bg-surface-input/70 px-4 py-7 text-center transition hover:border-amber-400/50 hover:bg-white/[0.02]"
+          className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.12] bg-surface-input/70 px-4 py-7 text-center transition hover:border-white/25 hover:bg-white/[0.02]"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 transition group-hover:scale-105">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.05] text-zinc-300 transition">
             <Upload className="h-5 w-5" />
           </div>
-          <p className="mt-2.5 text-sm font-medium text-slate-200">
+          <p className="mt-2.5 text-sm font-medium text-zinc-200">
             Select roster JSON file
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-zinc-500">
             Supports shifts M, A, N, MID, OFF with 0-based month &amp; isoDate columns
           </p>
           <input
@@ -199,7 +200,7 @@ export function RosterModal({
         </div>
 
         {validationErrors.length > 0 && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-200">
+          <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200">
             <div className="flex items-center gap-2 font-medium text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Validation Errors</span>
@@ -213,7 +214,7 @@ export function RosterModal({
         )}
 
         {serverError && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-200">
+          <div className="rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-200">
             <div className="flex items-center gap-2 font-medium text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Upload Failed</span>
@@ -223,38 +224,38 @@ export function RosterModal({
         )}
 
         {parsedRoster && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+          <div className="space-y-2.5 border-t border-white/[0.06] pt-3.5">
             <div className="flex items-center gap-2 text-sm font-medium text-emerald-300">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>Validated: {parsedRoster.fileName}</span>
             </div>
-            <div className="mt-2.5 grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-lg bg-black/25 px-3 py-2">
-                <div className="text-slate-400">Month</div>
-                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
+              <span>
+                Month:{" "}
+                <strong className="font-mono font-medium tabular-nums text-zinc-200">
                   {rosterMonthToKey(parsedRoster.year, parsedRoster.month)}
-                </div>
-              </div>
-              <div className="rounded-lg bg-black/25 px-3 py-2">
-                <div className="text-slate-400">Employees</div>
-                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+                </strong>
+              </span>
+              <span>
+                Employees:{" "}
+                <strong className="font-mono font-medium tabular-nums text-zinc-200">
                   {parsedRoster.employees.length}
-                </div>
-              </div>
-              <div className="rounded-lg bg-black/25 px-3 py-2">
-                <div className="text-slate-400">Days</div>
-                <div className="mt-0.5 font-mono font-semibold text-slate-100">
+                </strong>
+              </span>
+              <span>
+                Days:{" "}
+                <strong className="font-mono font-medium tabular-nums text-zinc-200">
                   {parsedRoster.dateColumns.length}
-                </div>
-              </div>
+                </strong>
+              </span>
             </div>
-            <div className="mt-2.5 max-h-24 overflow-y-auto text-xs leading-relaxed text-slate-300/80">
+            <div className="max-h-24 overflow-y-auto text-xs leading-relaxed text-zinc-500">
               {parsedRoster.employees.join(", ")}
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2 border-t border-white/[0.07] pt-4">
+        <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] pt-4">
           <Button variant="secondary" onClick={handleClose}>
             Cancel
           </Button>

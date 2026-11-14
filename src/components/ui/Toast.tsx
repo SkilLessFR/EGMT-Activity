@@ -48,35 +48,31 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               : t.tone === "error"
                 ? AlertCircle
                 : Info;
-          const toneClasses =
-            t.tone === "success"
-              ? "border-emerald-500/30 bg-[#111A18]/95 text-emerald-100"
-              : t.tone === "error"
-                ? "border-red-500/35 bg-[#1D1215]/95 text-red-100"
-                : "border-white/10 bg-surface-elevated/95 text-slate-100";
+          // Neutral surface for every tone; only the icon carries colour.
+          const toneClasses = "bg-surface-elevated/95 text-zinc-100";
           const iconColor =
             t.tone === "success"
               ? "text-emerald-400"
               : t.tone === "error"
                 ? "text-red-400"
-                : "text-amber-400";
+                : "text-zinc-400";
 
           return (
             <div
               key={t.id}
-              className={`animate-modal-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-3.5 py-3 shadow-modal backdrop-blur-md ${toneClasses}`}
+              className={`animate-modal-in pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl px-3.5 py-3 shadow-modal backdrop-blur-md ${toneClasses}`}
             >
               <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconColor}`} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium leading-snug">{t.title}</p>
                 {t.description && (
-                  <p className="mt-0.5 text-xs text-slate-300/80">{t.description}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">{t.description}</p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
-                className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
+                className="rounded-md p-1 text-zinc-500 transition hover:bg-white/10 hover:text-zinc-200"
                 aria-label="Dismiss notification"
               >
                 <X className="h-3.5 w-3.5" />

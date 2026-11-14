@@ -1,15 +1,19 @@
+import colors from "tailwindcss/colors";
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        canvas: "#0B0E14",
+        // Neutral (zinc) replaces the blue-tinted slate everywhere `slate-*` is used.
+        slate: colors.zinc,
+        canvas: "#09090B",
         surface: {
-          DEFAULT: "#111622",
-          elevated: "#161C2C",
-          card: "#141926",
-          input: "#0D111A",
+          DEFAULT: "#0E0E11",
+          elevated: "#141418",
+          card: "#0E0E11",
+          input: "#0B0B0E",
         },
       },
       fontFamily: {
@@ -23,10 +27,19 @@ export default {
           "Roboto",
           "sans-serif",
         ],
+        mono: [
+          '"JetBrains Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "monospace",
+        ],
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.04)",
-        modal: "0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08)",
+        // Flat by default: structure comes from hairlines, not shadows.
+        card: "none",
+        modal: "0 24px 64px -16px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07)",
       },
     },
   },

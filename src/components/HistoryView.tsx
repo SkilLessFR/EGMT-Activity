@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  CheckCircle2,
-  Clock,
   Download,
   History,
   Loader2,
@@ -21,7 +19,7 @@ import {
   Button,
   EmptyState,
   SkeletonCard,
-  StatusBadge,
+  StatusDot,
   inputClassName,
   selectClassName,
 } from "./ui/Primitives";
@@ -131,17 +129,17 @@ export function HistoryView({ roster }: HistoryViewProps) {
       {/* Page Header & Distinct Export Actions */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-100 sm:text-2xl">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
             Activity History
           </h1>
-          <p className="mt-0.5 text-xs text-slate-400">
-            Search completed records and export genuine Excel reports ({fromDate} → {toDate})
+          <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500">
+            Search completed records and export Excel reports ({fromDate} → {toDate})
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            variant="emerald"
+            variant="primary"
             size="md"
             disabled={exportingType !== null || !fromDate || !toDate}
             onClick={() => void handleExport("daily")}
@@ -157,7 +155,6 @@ export function HistoryView({ roster }: HistoryViewProps) {
           <Button
             variant="secondary"
             size="md"
-            className="border-amber-500/35 bg-amber-500/10 text-amber-200 hover:border-amber-500/50 hover:bg-amber-500/20"
             disabled={exportingType !== null || !fromDate || !toDate}
             onClick={() => void handleExport("downtime")}
           >
@@ -171,11 +168,11 @@ export function HistoryView({ roster }: HistoryViewProps) {
         </div>
       </div>
 
-      {/* Filters Panel */}
-      <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-surface p-4">
+      {/* Filters Section */}
+      <div className="space-y-3 border-y border-white/[0.06] py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           {/* Category Segmented Filter */}
-          <div className="inline-flex rounded-xl border border-white/[0.08] bg-surface-input p-1">
+          <div className="inline-flex rounded-lg bg-white/[0.04] p-1">
             {(
               [
                 { id: "ALL", label: "All Activity" },
@@ -189,8 +186,8 @@ export function HistoryView({ roster }: HistoryViewProps) {
                 onClick={() => setCategory(opt.id)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   category === opt.id
-                    ? "bg-white/[0.1] text-slate-100"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 {opt.label}
@@ -200,14 +197,14 @@ export function HistoryView({ roster }: HistoryViewProps) {
 
           {/* Date Quick Presets */}
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-1 text-[11px] font-medium text-slate-500">Range:</span>
+            <span className="mr-1 text-xs text-zinc-500">Range:</span>
             <button
               type="button"
               onClick={() => applyPreset("today")}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                 fromDate === today && toDate === today
-                  ? "bg-amber-500/15 text-amber-300"
-                  : "bg-white/[0.04] text-slate-400 hover:text-slate-200"
+                  ? "bg-white/[0.1] text-zinc-100"
+                  : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
               }`}
             >
               Today
@@ -215,7 +212,11 @@ export function HistoryView({ roster }: HistoryViewProps) {
             <button
               type="button"
               onClick={() => applyPreset("7d")}
-              className="rounded-lg bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-slate-400 transition hover:text-slate-200"
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                fromDate === shiftIsoDate(today, -6) && toDate === today
+                  ? "bg-white/[0.1] text-zinc-100"
+                  : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+              }`}
             >
               Last 7d
             </button>
@@ -224,8 +225,8 @@ export function HistoryView({ roster }: HistoryViewProps) {
               onClick={() => applyPreset("month")}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                 fromDate === monthStart && toDate === today
-                  ? "bg-amber-500/15 text-amber-300"
-                  : "bg-white/[0.04] text-slate-400 hover:text-slate-200"
+                  ? "bg-white/[0.1] text-zinc-100"
+                  : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
               }`}
             >
               This Month
@@ -235,27 +236,27 @@ export function HistoryView({ roster }: HistoryViewProps) {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-400">From Date</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-400">From Date</label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className={inputClassName}
+              className={`${inputClassName} font-mono tabular-nums`}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-400">To Date</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-400">To Date</label>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className={inputClassName}
+              className={`${inputClassName} font-mono tabular-nums`}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-400">Technician</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-400">Technician</label>
             <select
               value={employeeFilter}
               onChange={(e) => setEmployeeFilter(e.target.value)}
@@ -271,9 +272,9 @@ export function HistoryView({ roster }: HistoryViewProps) {
           </div>
 
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-400">Task Search</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-400">Task Search</label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
               <input
                 type="text"
                 value={taskSearch}
@@ -285,7 +286,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                 <button
                   type="button"
                   onClick={() => setTaskSearch("")}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                  className="absolute right-2.5 top-2.5 text-zinc-500 hover:text-zinc-200"
                   aria-label="Clear search"
                 >
                   <X className="h-4 w-4" />
@@ -295,9 +296,11 @@ export function HistoryView({ roster }: HistoryViewProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-1 text-xs text-slate-400">
+        <div className="flex items-center justify-between pt-1 text-xs text-zinc-500">
           <span>
-            <strong className="font-mono tabular-nums text-slate-200">{items.length}</strong>{" "}
+            <strong className="font-mono font-medium tabular-nums text-zinc-200">
+              {items.length}
+            </strong>{" "}
             record{items.length === 1 ? "" : "s"} found
           </span>
           <div className="flex items-center gap-2">
@@ -309,7 +312,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                   setTaskSearch("");
                   setCategory("ALL");
                 }}
-                className="text-xs font-medium text-amber-400 hover:text-amber-300"
+                className="text-xs font-medium text-zinc-300 underline-offset-2 hover:text-zinc-100 hover:underline"
               >
                 Reset filters
               </button>
@@ -323,14 +326,14 @@ export function HistoryView({ roster }: HistoryViewProps) {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="flex items-center gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
           <span>{error}</span>
         </div>
       )}
 
       {loading && items.length === 0 ? (
-        <div className="space-y-3">
+        <div className="border-t border-white/[0.06]">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -344,75 +347,66 @@ export function HistoryView({ roster }: HistoryViewProps) {
       ) : (
         <>
           {/* Desktop Table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-white/[0.08] bg-surface md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-white/[0.07] bg-surface-input text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Scheduled</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3">Task</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Completed By</th>
-                    <th className="px-4 py-3">Completed At (Bucharest)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.05]">
-                  {items.map((item) => {
-                    const isCompleted = item.status === "Completed";
-                    return (
-                      <tr key={item.id} className="transition hover:bg-white/[0.025]">
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-slate-300">
-                          <div>{item.scheduledDate}</div>
-                          <div className="text-slate-500">
-                            {item.taskType === "DAILY"
-                              ? item.scheduledTime ?? "—"
-                              : item.window ?? "—"}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <StatusBadge tone={item.taskType === "DAILY" ? "neutral" : "amber"}>
-                            {item.taskType === "DAILY" ? "Daily" : "Downtime"}
-                          </StatusBadge>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-slate-100">{item.taskTitle}</td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          {isCompleted ? (
-                            <StatusBadge tone="emerald">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Completed
-                            </StatusBadge>
-                          ) : (
-                            <StatusBadge tone="amber">
-                              <Clock className="h-3 w-3" />
-                              Pending
-                            </StatusBadge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-slate-200">{item.completedBy ?? "—"}</td>
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-slate-400">
-                          {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-white/[0.06] text-xs font-medium text-zinc-500">
+                <tr>
+                  <th className="py-2.5 pr-4 font-medium">Scheduled</th>
+                  <th className="px-4 py-2.5 font-medium">Category</th>
+                  <th className="px-4 py-2.5 font-medium">Task</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium">Completed By</th>
+                  <th className="py-2.5 pl-4 font-medium">Completed At (Bucharest)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {items.map((item) => {
+                  const isCompleted = item.status === "Completed";
+                  return (
+                    <tr key={item.id} className="transition hover:bg-white/[0.02]">
+                      <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs tabular-nums text-zinc-300">
+                        <div>{item.scheduledDate}</div>
+                        <div className="text-zinc-500">
+                          {item.taskType === "DAILY"
+                            ? item.scheduledTime ?? "—"
+                            : item.window ?? "—"}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-400">
+                        {item.taskType === "DAILY" ? "Daily" : "Downtime"}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-zinc-100">
+                        {item.taskTitle}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {isCompleted ? (
+                          <StatusDot tone="emerald">Completed</StatusDot>
+                        ) : (
+                          <StatusDot tone="neutral">Pending</StatusDot>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-zinc-300">
+                        {item.completedBy ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap py-3 pl-4 font-mono text-xs tabular-nums text-zinc-500">
+                        {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Mobile Card List */}
-          <div className="space-y-2.5 md:hidden">
+          {/* Mobile Row List */}
+          <div className="divide-y divide-white/[0.06] border-t border-white/[0.06] md:hidden">
             {items.map((item) => {
               const isCompleted = item.status === "Completed";
               return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-white/[0.08] bg-surface-card p-3.5 shadow-card"
-                >
+                <div key={item.id} className="py-3.5">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-xs font-medium tabular-nums text-slate-300">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-mono tabular-nums text-zinc-400">
                         {item.scheduledDate}
                         {item.taskType === "DAILY" && item.scheduledTime
                           ? ` · ${item.scheduledTime}`
@@ -420,17 +414,18 @@ export function HistoryView({ roster }: HistoryViewProps) {
                             ? ` · ${item.window}`
                             : ""}
                       </span>
-                      <StatusBadge tone={item.taskType === "DAILY" ? "neutral" : "amber"}>
+                      <span className="text-zinc-600">·</span>
+                      <span className="text-zinc-500">
                         {item.taskType === "DAILY" ? "Daily" : "Downtime"}
-                      </StatusBadge>
+                      </span>
                     </div>
-                    <StatusBadge tone={isCompleted ? "emerald" : "amber"}>
+                    <StatusDot tone={isCompleted ? "emerald" : "neutral"}>
                       {item.status}
-                    </StatusBadge>
+                    </StatusDot>
                   </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-100">{item.taskTitle}</div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                    <span className="font-medium text-slate-200">{item.completedBy ?? "—"}</span>
+                  <div className="mt-1.5 text-sm font-medium text-zinc-100">{item.taskTitle}</div>
+                  <div className="mt-1.5 flex items-center justify-between text-xs text-zinc-500">
+                    <span className="text-zinc-300">{item.completedBy ?? "—"}</span>
                     <span className="font-mono tabular-nums">
                       {item.completedAt ? formatBucharestDateTime(item.completedAt) : "—"}
                     </span>

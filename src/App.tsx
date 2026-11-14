@@ -44,7 +44,7 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-canvas text-slate-100">
+      <div className="min-h-screen bg-canvas text-zinc-100">
         <Header
           activeSection={activeSection}
           onSelectSection={setActiveSection}
@@ -53,7 +53,7 @@ export default function App() {
           onOpenRosterModal={() => setRosterModalOpen(true)}
         />
 
-        <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6 md:pb-10">
+        <main className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-12">
           {activeSection === "daily" && (
             <DailyTasksView
               rosterCache={rosterCache}
