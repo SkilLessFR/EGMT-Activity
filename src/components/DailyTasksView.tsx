@@ -633,8 +633,10 @@ export function DailyTasksView({
       occurrences: dayOccurrences,
       prevDateOccurrences,
       nowTime: nowParts.time,
+      selectedDate,
+      nowDate: nowParts.date,
     });
-  }, [shiftFilter, dayOccurrences, prevDateOccurrences, nowParts.time]);
+  }, [shiftFilter, dayOccurrences, prevDateOccurrences, nowParts.time, selectedDate, nowParts.date]);
 
   const grouped = useMemo(() => groupDailyOccurrences(occurrences), [occurrences]);
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;

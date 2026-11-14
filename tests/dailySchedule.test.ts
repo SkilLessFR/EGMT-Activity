@@ -565,12 +565,64 @@ describe("dailySchedule", () => {
         occurrences: day2Occs,
         prevDateOccurrences: day1Occs,
         nowTime: "01:15",
+        selectedDate: "2026-11-15",
+        nowDate: "2026-11-15",
       });
       expect(filtered.map((o) => `${o.taskId}@${o.scheduledDate}`)).toEqual([
         "t-n-window@2026-11-14",
         "t-n-second@2026-11-15",
       ]);
       expect(filtered[0].status).toBe("dueNow");
+    });
+
+    it("shows a 23:00-range Night completion on both Day 1 and Day 2, and hides Day 1's 03:00 task when stepping back", () => {
+      const completion2230: TaskCompletion = {
+        id: "comp-n-2230",
+        occurrenceId: buildDailyOccurrenceId("t-n-first", "2026-11-14", "22:30"),
+        taskId: "t-n-first",
+        taskType: "DAILY",
+        taskTitle: "Night First Half",
+        scheduledDate: "2026-11-14",
+        scheduledTime: "22:30",
+        completedBy: "Dan N",
+        completedAt: "2026-11-14T21:00:00.000Z",
+      };
+
+      const day1Occs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-14",
+        completions: [completion2230],
+        nowDate: "2026-11-15",
+        nowTime: "01:23",
+      });
+      const day2Occs = generateDailyOccurrences({
+        tasks: sampleTasks,
+        selectedDate: "2026-11-15",
+        completions: [completion2230],
+        nowDate: "2026-11-15",
+        nowTime: "01:23",
+      });
+
+      // On Day 2 (2026-11-15 at 01:23), t-n-first completed on Day 1 shows as completed
+      const day2Filtered = filterOccurrencesForCurrentShift({
+        occurrences: day2Occs,
+        prevDateOccurrences: day1Occs,
+        nowTime: "01:23",
+        selectedDate: "2026-11-15",
+        nowDate: "2026-11-15",
+      });
+      const day2Completed = day2Filtered.find((o) => o.taskId === "t-n-first");
+      expect(day2Completed?.status).toBe("completed");
+
+      // Stepping back to Day 1 (2026-11-14 at 01:23) shows 22:00-23:59 (not 03:00 from Nov 13->14)
+      const day1Filtered = filterOccurrencesForCurrentShift({
+        occurrences: day1Occs,
+        nowTime: "01:23",
+        selectedDate: "2026-11-14",
+        nowDate: "2026-11-15",
+      });
+      expect(day1Filtered.map((o) => o.taskId)).toEqual(["t-n-window", "t-n-first"]);
+      expect(day1Filtered.find((o) => o.taskId === "t-n-first")?.status).toBe("completed");
     });
   });
 });

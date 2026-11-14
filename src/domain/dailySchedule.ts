@@ -399,38 +399,64 @@ function isTimeInCurrentWindow(
  * Filters occurrences to only those relevant to the current shift at `nowTime`.
  * Handles Night shift spanning 2 calendar days:
  * - 22:00–23:59 ("first"): shows Night/ALL_ACTIVE tasks in 22:00–23:59 of selectedDate.
- * - 00:00–05:59 ("second"): shows Night/ALL_ACTIVE tasks in 00:00–05:59 of selectedDate,
- *   plus any overnight dueUntil Night/ALL_ACTIVE occurrences that started on prevDate.
+ * - 00:00–05:59 ("second"):
+ *   - On selectedDate === nowDate (second day): shows Night/ALL_ACTIVE tasks in 00:00–05:59
+ *     of selectedDate, plus overnight dueUntil or completed Night tasks from prevDate.
+ *   - On selectedDate < nowDate (e.g. stepping back to first day): shows 22:00–23:59 of
+ *     selectedDate rather than 00:00–05:59 of the previous night's shift.
  */
 export function filterOccurrencesForCurrentShift(params: {
   occurrences: DailyOccurrence[];
   prevDateOccurrences?: DailyOccurrence[];
   nowTime: string;
+  selectedDate?: string;
+  nowDate?: string;
 }): DailyOccurrence[] {
-  const { occurrences, prevDateOccurrences = [], nowTime } = params;
+  const {
+    occurrences,
+    prevDateOccurrences = [],
+    nowTime,
+    selectedDate,
+    nowDate,
+  } = params;
   const window = getCurrentShiftWindow(nowTime);
   const activeSet = new Set<Shift>(window.activeShifts);
 
+  // If currently in 00:00–05:59 (second half) and user steps back to an earlier date
+  // (e.g. the first day of the current night shift), show 22:00–23:59 of that date.
+  const effectiveWindow: CurrentShiftWindow =
+    window.primaryShift === "N" &&
+    window.nightHalf === "second" &&
+    selectedDate &&
+    nowDate &&
+    selectedDate < nowDate
+      ? { ...window, nightHalf: "first" }
+      : window;
+
   const filtered = occurrences.filter((occ) => {
     if (occ.targetShift === "ALL_ACTIVE") {
-      return isTimeInCurrentWindow(occ.scheduledTime, window);
+      return isTimeInCurrentWindow(occ.scheduledTime, effectiveWindow);
     }
     if (occ.targetShift === "N") {
-      if (window.primaryShift !== "N") return false;
-      return isTimeInCurrentWindow(occ.scheduledTime, window);
+      if (effectiveWindow.primaryShift !== "N") return false;
+      return isTimeInCurrentWindow(occ.scheduledTime, effectiveWindow);
     }
     return activeSet.has(occ.targetShift);
   });
 
-  if (window.primaryShift === "N" && window.nightHalf === "second") {
+  if (effectiveWindow.primaryShift === "N" && effectiveWindow.nightHalf === "second") {
     const seen = new Set(filtered.map((o) => o.occurrenceId));
-    const overnightFromPrev = prevDateOccurrences.filter((occ) => {
+    const carriedFromPrev = prevDateOccurrences.filter((occ) => {
       if (seen.has(occ.occurrenceId)) return false;
       if (occ.targetShift !== "N" && occ.targetShift !== "ALL_ACTIVE") return false;
-      if (!occ.dueUntil) return false;
-      return parseTimeToMinutes(occ.dueUntil) < parseTimeToMinutes(occ.scheduledTime);
+      const isOvernightDueUntil =
+        Boolean(occ.dueUntil) &&
+        parseTimeToMinutes(occ.dueUntil!) < parseTimeToMinutes(occ.scheduledTime);
+      const isFirstHalfCompleted =
+        parseTimeToMinutes(occ.scheduledTime) >= 22 * 60 && occ.status === "completed";
+      return isOvernightDueUntil || isFirstHalfCompleted;
     });
-    return [...overnightFromPrev, ...filtered];
+    return [...carriedFromPrev, ...filtered];
   }
 
   return filtered;
