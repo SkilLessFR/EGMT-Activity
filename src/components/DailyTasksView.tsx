@@ -605,7 +605,9 @@ export function DailyTasksView({
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
-  const [shiftFilter, setShiftFilter] = useState<"current" | "all">("current");
+  const [shiftFilter, setShiftFilter] = useState<"M" | "A" | "N">(
+    () => getCurrentShiftWindow(getBucharestNowParts().time).primaryShift
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -679,7 +681,7 @@ export function DailyTasksView({
   );
 
   const prevDateOccurrences = useMemo(() => {
-    if (shiftFilter !== "current" || shiftWindow.nightHalf !== "second") {
+    if (shiftFilter !== "N" || shiftWindow.nightHalf !== "second") {
       return [];
     }
     return generateDailyOccurrences({
@@ -694,17 +696,49 @@ export function DailyTasksView({
   }, [shiftFilter, shiftWindow.nightHalf, tasks, prevDate, completions, previousRoster, nowParts.date, nowParts.time]);
 
   const occurrences = useMemo(() => {
-    if (shiftFilter === "all") {
-      return dayOccurrences;
+    if (shiftFilter === shiftWindow.primaryShift) {
+      return filterOccurrencesForCurrentShift({
+        occurrences: dayOccurrences,
+        prevDateOccurrences,
+        nowTime: nowParts.time,
+        selectedDate,
+        nowDate: nowParts.date,
+      });
     }
-    return filterOccurrencesForCurrentShift({
-      occurrences: dayOccurrences,
-      prevDateOccurrences,
-      nowTime: nowParts.time,
-      selectedDate,
-      nowDate: nowParts.date,
+    if (shiftFilter === "M") {
+      return filterOccurrencesForCurrentShift({
+        occurrences: dayOccurrences,
+        nowTime: "10:00",
+        selectedDate,
+        nowDate: nowParts.date,
+      });
+    }
+    if (shiftFilter === "A") {
+      return filterOccurrencesForCurrentShift({
+        occurrences: dayOccurrences,
+        nowTime: "18:00",
+        selectedDate,
+        nowDate: nowParts.date,
+      });
+    }
+    // Night selected while not currently in Night shift: show all Night/ALL_ACTIVE tasks in 22:00–05:59
+    return dayOccurrences.filter((occ) => {
+      if (occ.targetShift === "N") return true;
+      if (occ.targetShift === "ALL_ACTIVE") {
+        const [h] = occ.scheduledTime.split(":").map(Number);
+        return h >= 22 || h < 6;
+      }
+      return false;
     });
-  }, [shiftFilter, dayOccurrences, prevDateOccurrences, nowParts.time, selectedDate, nowParts.date]);
+  }, [
+    shiftFilter,
+    shiftWindow.primaryShift,
+    dayOccurrences,
+    prevDateOccurrences,
+    nowParts.time,
+    selectedDate,
+    nowParts.date,
+  ]);
 
   const grouped = useMemo(() => groupDailyOccurrences(occurrences), [occurrences]);
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
@@ -1019,28 +1053,26 @@ export function DailyTasksView({
           </div>
 
           <div className="inline-flex rounded-lg bg-white/[0.04] p-0.5">
-            <button
-              type="button"
-              onClick={() => setShiftFilter("current")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                shiftFilter === "current"
-                  ? "bg-zinc-100 font-semibold text-zinc-950"
-                  : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Shift {shiftWindow.activeShifts.join("+")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShiftFilter("all")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                shiftFilter === "all"
-                  ? "bg-zinc-100 font-semibold text-zinc-950"
-                  : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              All Shifts
-            </button>
+            {(
+              [
+                { value: "M", label: "Morning" },
+                { value: "A", label: "After" },
+                { value: "N", label: "Night" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setShiftFilter(opt.value)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  shiftFilter === opt.value
+                    ? "btn-primary-theme font-semibold"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
       )}
