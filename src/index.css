@@ -300,3 +300,32 @@
     border-radius: 9999px;
   }
 }
+
+/* Light mode legibility: subpixel smoothing + heavier weight + subtle text shadow without changing text color */
+:root:has(> head > meta[name="color-scheme"][content="light"]) body {
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  font-weight: 500;
+  text-shadow: 0 0.5px 0 rgba(15, 23, 42, 0.06);
+}
+:root:has(> head > meta[name="color-scheme"][content="light"]) .font-medium {
+  font-weight: 600;
+}
+:root:has(> head > meta[name="color-scheme"][content="light"]) .font-semibold {
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) body {
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+    font-weight: 500;
+    text-shadow: 0 0.5px 0 rgba(15, 23, 42, 0.06);
+  }
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .font-medium {
+    font-weight: 600;
+  }
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .font-semibold {
+    font-weight: 700;
+  }
+}
