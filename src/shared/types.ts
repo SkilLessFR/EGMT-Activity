@@ -33,7 +33,7 @@ export interface MaintenanceTask {
   updatedAt: string; // ISO timestamp
 }
 
-export type TaskType = "DAILY" | "MAINTENANCE";
+export type TaskType = "DAILY" | "MAINTENANCE" | "SCHEDULED";
 
 export interface TaskCompletion {
   id: string;
@@ -96,7 +96,7 @@ export interface RosterData {
   rows: Record<string, Record<string, RosterShift>>;
 }
 
-export type HistoryCategory = "ALL" | "DAILY" | "MAINTENANCE";
+export type HistoryCategory = "ALL" | "DAILY" | "MAINTENANCE" | "SCHEDULED";
 
 export interface HistoryItem {
   id: string;

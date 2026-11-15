@@ -172,12 +172,13 @@ export function HistoryView({ roster }: HistoryViewProps) {
       <div className="space-y-3 border-y border-white/[0.06] py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           {/* Category Segmented Filter */}
-          <div className="inline-flex rounded-lg bg-white/[0.04] p-1">
+          <div className="inline-flex flex-wrap rounded-lg bg-white/[0.04] p-1">
             {(
               [
                 { id: "ALL", label: "All Activity" },
                 { id: "DAILY", label: "Daily Tasks" },
                 { id: "MAINTENANCE", label: "Downtime" },
+                { id: "SCHEDULED", label: "Scheduled" },
               ] as const
             ).map((opt) => (
               <button
@@ -186,7 +187,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                 onClick={() => setCategory(opt.id)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   category === opt.id
-                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    ? "btn-primary-theme font-semibold"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
@@ -373,7 +374,11 @@ export function HistoryView({ roster }: HistoryViewProps) {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-400">
-                        {item.taskType === "DAILY" ? "Daily" : "Downtime"}
+                        {item.taskType === "DAILY"
+                          ? "Daily"
+                          : item.taskType === "SCHEDULED"
+                            ? "Scheduled"
+                            : "Downtime"}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-zinc-100">
                         {item.taskTitle}
@@ -416,7 +421,11 @@ export function HistoryView({ roster }: HistoryViewProps) {
                       </span>
                       <span className="text-zinc-600">·</span>
                       <span className="text-zinc-500">
-                        {item.taskType === "DAILY" ? "Daily" : "Downtime"}
+                        {item.taskType === "DAILY"
+                          ? "Daily"
+                          : item.taskType === "SCHEDULED"
+                            ? "Scheduled"
+                            : "Downtime"}
                       </span>
                     </div>
                     <StatusDot tone={isCompleted ? "emerald" : "neutral"}>

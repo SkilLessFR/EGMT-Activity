@@ -7,6 +7,7 @@ import type {
   HistoryCategory,
   HistoryListResponse,
   MaintenanceTask,
+  ScheduledMaintenanceLog,
 } from "../../../src/shared/types";
 import { errorResponse, isValidIsoDate, jsonResponse } from "../_lib/http";
 import {
@@ -19,6 +20,7 @@ const VALID_CATEGORIES = new Set<HistoryCategory>([
   "ALL",
   "DAILY",
   "MAINTENANCE",
+  "SCHEDULED",
 ]);
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -46,7 +48,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
   if (!VALID_CATEGORIES.has(categoryParam)) {
     return errorResponse(
-      "Invalid 'category'. Expected ALL, DAILY, or MAINTENANCE.",
+      "Invalid 'category'. Expected ALL, DAILY, MAINTENANCE, or SCHEDULED.",
       400
     );
   }
@@ -57,11 +59,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const includeDaily = categoryParam === "ALL" || categoryParam === "DAILY";
   const includeMaintenance =
     categoryParam === "ALL" || categoryParam === "MAINTENANCE";
+  const includeScheduled =
+    categoryParam === "ALL" || categoryParam === "SCHEDULED";
 
-  const [monthBatches, maintenanceTasks] = await Promise.all([
+  const [monthBatches, maintenanceTasks, scheduledLogs] = await Promise.all([
     Promise.all(months.map((m) => getMonthCompletions(kv, m))),
     includeMaintenance
       ? kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json")
+      : Promise.resolve(null),
+    includeScheduled
+      ? kv.get<ScheduledMaintenanceLog[]>(KV_KEYS.scheduledLogs, "json")
       : Promise.resolve(null),
   ]);
 
@@ -77,6 +84,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     dailyCompletions,
     maintenanceCompletions,
     maintenanceTasks: includeMaintenance ? (maintenanceTasks ?? []) : undefined,
+    scheduledLogs: includeScheduled ? (scheduledLogs ?? []) : undefined,
     filters: {
       from,
       to,

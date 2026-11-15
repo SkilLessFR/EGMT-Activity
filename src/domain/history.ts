@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import {
   formatBucharestDateTime,
+  getBucharestDate,
   getMonthsInRange,
   parseMonthKey,
 } from "../shared/timezone";
@@ -9,6 +10,7 @@ import type {
   HistoryItem,
   MaintenanceTask,
   MaintenanceWindow,
+  ScheduledMaintenanceLog,
   TaskCompletion,
 } from "../shared/types";
 
@@ -25,6 +27,7 @@ export interface BuildHistoryInput {
   dailyCompletions: TaskCompletion[];
   maintenanceCompletions: TaskCompletion[];
   maintenanceTasks?: MaintenanceTask[];
+  scheduledLogs?: ScheduledMaintenanceLog[];
   filters: HistoryFilterOptions;
 }
 
@@ -270,8 +273,13 @@ export function filterHistoryItems(
  * Builds unified, filtered, and sorted history items from daily and maintenance data.
  */
 export function buildUnifiedHistory(input: BuildHistoryInput): HistoryItem[] {
-  const { dailyCompletions, maintenanceCompletions, maintenanceTasks, filters } =
-    input;
+  const {
+    dailyCompletions,
+    maintenanceCompletions,
+    maintenanceTasks,
+    scheduledLogs,
+    filters,
+  } = input;
   const category = filters.category ?? "ALL";
   const items: HistoryItem[] = [];
 
@@ -299,6 +307,28 @@ export function buildUnifiedHistory(input: BuildHistoryInput): HistoryItem[] {
           items.push(completionToHistoryItem(completion));
         }
       }
+    }
+  }
+
+  if (
+    (category === "ALL" || category === "SCHEDULED") &&
+    Array.isArray(scheduledLogs)
+  ) {
+    for (const log of scheduledLogs) {
+      const scheduledDate = getBucharestDate(new Date(log.changedAt));
+      const locPart = log.location ? ` (${log.location})` : "";
+      const notesPart = log.notes ? ` · ${log.notes}` : "";
+      items.push({
+        id: log.id,
+        occurrenceId: log.itemId,
+        taskId: log.itemId,
+        taskType: "SCHEDULED",
+        taskTitle: `${log.itemName}${locPart}${notesPart}`,
+        scheduledDate,
+        completedBy: log.changedBy,
+        completedAt: log.changedAt,
+        status: "Completed",
+      });
     }
   }
 
