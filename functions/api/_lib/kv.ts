@@ -16,6 +16,10 @@ export function rosterKey(monthKey: string): string {
   return `roster:${monthKey}`;
 }
 
+export function downtimeScheduleKey(monthKey: string): string {
+  return `downtime:schedule:${monthKey}`;
+}
+
 export function normalizeEmployeeKey(employeeName: string): string {
   return encodeURIComponent(employeeName.trim().toLowerCase());
 }

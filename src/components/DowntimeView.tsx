@@ -1,32 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   Check,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Edit2,
+  FileSpreadsheet,
   Loader2,
+  MapPin,
   Moon,
   Plus,
-  Settings2,
   Sun,
   Trash2,
+  Upload,
+  UserPlus,
+  Users,
+  X,
 } from "lucide-react";
 import {
   createCompletion,
-  createMaintenanceTask,
-  deleteMaintenanceTask,
+  deleteDowntimeSchedule,
   fetchCompletions,
-  fetchMaintenanceTasks,
+  fetchDowntimeSchedule,
   fetchRoster,
   getErrorMessage,
-  updateMaintenanceTask,
+  saveDowntimeSchedule,
+  updateDowntimePhaseTeam,
+  updateDowntimeTask,
 } from "../api/client";
 import {
-  generateMaintenanceOccurrencesForMonth,
-  getMaintenanceDatesForMonth,
-} from "../domain/maintenanceSchedule";
+  buildDowntimeScheduleFromWorkbooks,
+  parseDowntimeWorkbook,
+  type ParsedDowntimeWorkbook,
+} from "../domain/downtimeImporter";
 import {
   formatBucharestDateTime,
   formatMonthKey,
@@ -34,8 +42,9 @@ import {
   parseMonthKey,
 } from "../shared/timezone";
 import type {
-  MaintenanceOccurrence,
-  MaintenanceTask,
+  DowntimeMonthSchedule,
+  DowntimePhase,
+  DowntimeTask,
   MaintenanceWindow,
   RosterData,
   TaskCompletion,
@@ -56,250 +65,11 @@ interface DowntimeViewProps {
   onOpenRosterModal: () => void;
 }
 
-interface MaintenanceFormModalProps {
-  isOpen: boolean;
-  editingTask: MaintenanceTask | null;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-function MaintenanceFormModal({
-  isOpen,
-  editingTask,
-  onClose,
-  onSaved,
-}: MaintenanceFormModalProps) {
-  const { showToast } = useToast();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [windowVal, setWindowVal] = useState<MaintenanceWindow>("MORNING");
-  const [enabled, setEnabled] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setError(null);
-    setConfirmDeleteOpen(false);
-    if (editingTask) {
-      setTitle(editingTask.title);
-      setDescription(editingTask.description ?? "");
-      setWindowVal(editingTask.window);
-      setEnabled(editingTask.enabled);
-    } else {
-      setTitle("");
-      setDescription("");
-      setWindowVal("MORNING");
-      setEnabled(true);
-    }
-  }, [isOpen, editingTask]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!title.trim()) {
-      setError("Maintenance task title is required.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        window: windowVal,
-        enabled,
-      };
-      if (editingTask) {
-        await updateMaintenanceTask(editingTask.id, payload);
-        showToast({ tone: "success", title: "Definition updated", description: payload.title });
-      } else {
-        await createMaintenanceTask(payload);
-        showToast({ tone: "success", title: "Definition created", description: payload.title });
-      }
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!editingTask) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteMaintenanceTask(editingTask.id);
-      showToast({ tone: "info", title: "Definition deleted", description: editingTask.title });
-      setConfirmDeleteOpen(false);
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setConfirmDeleteOpen(false);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  return (
-    <>
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={editingTask ? "Edit Maintenance Definition" : "New Maintenance Definition"}
-        subtitle="Reused automatically every month on the scheduled maintenance dates"
-        maxWidthClass="max-w-md"
-      >
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-          {error && (
-            <div className="flex items-start gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-200">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Task Title <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Cabinet power supply & fan cleaning"
-              className={inputClassName}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Description <span className="text-zinc-500">(optional)</span>
-            </label>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Maintenance procedure notes..."
-              className={inputClassName}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Maintenance Window
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setWindowVal("MORNING")}
-                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition ${
-                  windowVal === "MORNING"
-                    ? "border-white/25 bg-white/[0.1] text-zinc-100"
-                    : "border-white/[0.08] bg-surface-input text-zinc-400 hover:border-white/[0.14] hover:text-zinc-200"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Sun className="h-3.5 w-3.5" />
-                  <span>Morning (M)</span>
-                </div>
-                <span className="text-[11px] text-zinc-500">1st Mon–Wed · 06:00–14:00</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWindowVal("NIGHT")}
-                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition ${
-                  windowVal === "NIGHT"
-                    ? "border-white/25 bg-white/[0.1] text-zinc-100"
-                    : "border-white/[0.08] bg-surface-input text-zinc-400 hover:border-white/[0.14] hover:text-zinc-200"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <Moon className="h-3.5 w-3.5" />
-                  <span>Night (N)</span>
-                </div>
-                <span className="text-[11px] text-zinc-500">3rd Mon–Wed · 22:00–06:00</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-white/[0.06] pt-3.5">
-            <div>
-              <div className="text-sm font-medium text-zinc-200">Definition Enabled</div>
-              <div className="text-xs text-zinc-500">
-                Historical records remain preserved if disabled
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={enabled}
-              aria-label="Definition Enabled"
-              onClick={() => setEnabled((prev) => !prev)}
-              className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition ${
-                enabled ? "bg-zinc-100" : "bg-white/[0.1]"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 rounded-full transition-transform ${
-                  enabled ? "translate-x-5 bg-zinc-950" : "translate-x-1 bg-zinc-400"
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
-            {editingTask ? (
-              <Button
-                type="button"
-                variant="danger"
-                disabled={deleting || saving}
-                onClick={() => setConfirmDeleteOpen(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="secondary" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" size="md" disabled={saving || deleting}>
-                {saving ? "Saving..." : editingTask ? "Save Changes" : "Create Task"}
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Modal>
-
-      <ConfirmDialog
-        isOpen={confirmDeleteOpen}
-        title="Delete Maintenance Definition?"
-        description={`"${editingTask?.title ?? ""}" will no longer be generated for future months. Past completion records stay intact.`}
-        busy={deleting}
-        onConfirm={() => void handleDelete()}
-        onCancel={() => setConfirmDeleteOpen(false)}
-      />
-    </>
-  );
-}
-
 function shiftMonthKey(monthKey: string, delta: number): string {
   const parsed = parseMonthKey(monthKey);
   if (!parsed) return monthKey;
-  const totalMonths = parsed.year * 12 + (parsed.month1Based - 1) + delta;
-  const newYear = Math.floor(totalMonths / 12);
-  const newMonth1 = (totalMonths % 12) + 1;
-  return formatMonthKey(newYear, newMonth1);
+  const d = new Date(Date.UTC(parsed.year, parsed.month1Based - 1 + delta, 1));
+  return formatMonthKey(d.getUTCFullYear(), d.getUTCMonth() + 1);
 }
 
 function formatMonthTitle(monthKey: string): string {
@@ -313,45 +83,506 @@ function formatMonthTitle(monthKey: string): string {
   }).format(d);
 }
 
-function formatShortDate(isoDate: string): { weekday: string; dayNum: string; monthShort: string } {
+function formatShortDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return {
-    weekday: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(dt),
-    dayNum: String(d).padStart(2, "0"),
-    monthShort: new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(dt),
+  if (!y || !m || !d) return isoDate;
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  }).format(dateObj);
+}
+
+function buildDowntimeTaskTitle(task: DowntimeTask): string {
+  const locPart = task.location ? ` (${task.location})` : "";
+  return `P${task.phaseNumber} Studio ${task.studio}${locPart} · ${task.description}`;
+}
+
+interface PeopleEditorModalProps {
+  isOpen: boolean;
+  title: string;
+  subtitle: string;
+  initialPeople: string[];
+  suggestions: string[];
+  showApplyToAllToggle?: boolean;
+  onClose: () => void;
+  onSave: (people: string[], applyToAllTasks: boolean) => Promise<void>;
+}
+
+function PeopleEditorModal({
+  isOpen,
+  title,
+  subtitle,
+  initialPeople,
+  suggestions,
+  showApplyToAllToggle = false,
+  onClose,
+  onSave,
+}: PeopleEditorModalProps) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [customName, setCustomName] = useState("");
+  const [applyToAll, setApplyToAll] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelected(initialPeople);
+    setCustomName("");
+    setApplyToAll(true);
+  }, [isOpen, initialPeople]);
+
+  const allChoices = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const name of [...initialPeople, ...suggestions]) {
+      const trimmed = name.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!map.has(key)) map.set(key, trimmed);
+    }
+    return Array.from(map.values());
+  }, [initialPeople, suggestions]);
+
+  const isSelected = (name: string) =>
+    selected.some((p) => p.toLowerCase() === name.toLowerCase());
+
+  const togglePerson = (name: string) => {
+    setSelected((prev) =>
+      prev.some((p) => p.toLowerCase() === name.toLowerCase())
+        ? prev.filter((p) => p.toLowerCase() !== name.toLowerCase())
+        : [...prev, name]
+    );
   };
+
+  const handleAddCustom = () => {
+    const trimmed = customName.trim();
+    if (!trimmed) return;
+    if (!isSelected(trimmed)) {
+      setSelected((prev) => [...prev, trimmed]);
+    }
+    setCustomName("");
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(selected, applyToAll);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      icon={<Users className="h-4 w-4" />}
+      maxWidthClass="max-w-lg"
+    >
+      <div className="space-y-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddCustom();
+              }
+            }}
+            placeholder="Add person name (e.g. Bogdan, Alex U.)..."
+            className={inputClassName}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleAddCustom}
+            disabled={!customName.trim()}
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </Button>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-zinc-400">
+            Selected ({selected.length})
+          </p>
+          {selected.length === 0 ? (
+            <p className="text-xs text-zinc-500">No people assigned yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {selected.map((person) => (
+                <span
+                  key={person}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200"
+                >
+                  {person}
+                  <button
+                    type="button"
+                    onClick={() => togglePerson(person)}
+                    className="rounded p-0.5 text-emerald-300/70 hover:bg-emerald-500/20 hover:text-emerald-100"
+                    aria-label={`Remove ${person}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {allChoices.length > 0 && (
+          <div className="space-y-1.5 border-t border-white/[0.06] pt-3">
+            <p className="text-xs font-medium text-zinc-400">
+              Team & Roster Suggestions
+            </p>
+            <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
+              {allChoices.map((choice) => {
+                const active = isSelected(choice);
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => togglePerson(choice)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                      active
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.2] hover:text-zinc-100"
+                    }`}
+                  >
+                    {active && <Check className="h-3 w-3 text-emerald-400" />}
+                    <span>{choice}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {showApplyToAllToggle && (
+          <label className="flex items-center gap-2.5 border-t border-white/[0.06] pt-3 text-xs text-zinc-300">
+            <input
+              type="checkbox"
+              checked={applyToAll}
+              onChange={(e) => setApplyToAll(e.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-zinc-900 accent-zinc-100"
+            />
+            <span>Apply this team to all tasks in this phase</span>
+          </label>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => void handleSave()}
+            disabled={saving}
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save People
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface DowntimeImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onImported: (schedule: DowntimeMonthSchedule) => void;
+}
+
+function DowntimeImportModal({
+  isOpen,
+  onClose,
+  onImported,
+}: DowntimeImportModalProps) {
+  const { showToast } = useToast();
+  const [parsedFiles, setParsedFiles] = useState<ParsedDowntimeWorkbook[]>([]);
+  const [includePassRows, setIncludePassRows] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setParsedFiles([]);
+    setIncludePassRows(false);
+    setError(null);
+  }, [isOpen]);
+
+  const handleFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setParsing(true);
+    setError(null);
+    try {
+      const incoming: ParsedDowntimeWorkbook[] = [];
+      for (const file of Array.from(fileList)) {
+        const buffer = await file.arrayBuffer();
+        const parsed = await parseDowntimeWorkbook(buffer, file.name);
+        incoming.push(parsed);
+      }
+      setParsedFiles((prev) => {
+        const byName = new Map(prev.map((p) => [p.fileName, p]));
+        for (const item of incoming) {
+          byName.set(item.fileName, item);
+        }
+        return Array.from(byName.values());
+      });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const preview = useMemo(() => {
+    if (parsedFiles.length === 0) return null;
+    try {
+      return buildDowntimeScheduleFromWorkbooks(parsedFiles, {
+        includePassRows,
+      });
+    } catch {
+      return null;
+    }
+  }, [parsedFiles, includePassRows]);
+
+  const handleImport = async () => {
+    if (!preview) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await saveDowntimeSchedule(preview.schedule);
+      showToast({
+        tone: "success",
+        title: "Downtime schedule imported",
+        description: `${saved.phases.length} phases · ${saved.tasks.length} tasks for ${saved.monthKey}`,
+      });
+      onImported(saved);
+      onClose();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Import Downtime Excel"
+      subtitle="Upload 1 or 2 Excel files (e.g. Phase 1–4 and Phase 5–8) for the month"
+      icon={<FileSpreadsheet className="h-4 w-4" />}
+      maxWidthClass="max-w-2xl"
+    >
+      <div className="space-y-4">
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] px-4 py-6 text-center transition hover:border-white/[0.28] hover:bg-white/[0.04]">
+          {parsing ? (
+            <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+          ) : (
+            <Upload className="h-6 w-6 text-zinc-400" />
+          )}
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-zinc-100">
+              Select 1 or 2 Downtime Excel files (.xlsx)
+            </p>
+            <p className="text-xs text-zinc-500">
+              You can select both files at once or add the second file after
+            </p>
+          </div>
+          <input
+            type="file"
+            accept=".xlsx,.xlsm"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void handleFilesSelected(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </label>
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {parsedFiles.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-zinc-400">
+              Loaded Files ({parsedFiles.length})
+            </p>
+            <div className="space-y-1.5">
+              {parsedFiles.map((file) => (
+                <div
+                  key={file.fileName}
+                  className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-zinc-200">
+                      {file.fileName}
+                    </p>
+                    <p className="text-zinc-500">
+                      {file.sheets.length} phase sheets · Month {file.monthKey}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setParsedFiles((prev) =>
+                        prev.filter((p) => p.fileName !== file.fileName)
+                      )
+                    }
+                    className="rounded p-1 text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                    aria-label={`Remove ${file.fileName}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label className="flex items-center gap-2.5 text-xs text-zinc-300">
+          <input
+            type="checkbox"
+            checked={includePassRows}
+            onChange={(e) => setIncludePassRows(e.target.checked)}
+            className="h-4 w-4 rounded border-white/20 bg-zinc-900 accent-zinc-100"
+          />
+          <span>
+            Include &ldquo;Pass&rdquo; studio rows as tasks (skipped by default)
+          </span>
+        </label>
+
+        {preview && (
+          <div className="space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2">
+              <span className="text-xs font-semibold text-zinc-100">
+                Preview · {formatMonthTitle(preview.schedule.monthKey)}
+              </span>
+              <span className="font-mono text-xs tabular-nums text-zinc-400">
+                {preview.schedule.phases.length} phases ·{" "}
+                {preview.schedule.tasks.length} tasks
+                {preview.skippedPassCount > 0 &&
+                  ` · ${preview.skippedPassCount} Pass skipped`}
+              </span>
+            </div>
+
+            <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+              {preview.schedule.phases.map((phase) => {
+                const count = preview.schedule.tasks.filter(
+                  (t) => t.phaseNumber === phase.phaseNumber
+                ).length;
+                return (
+                  <div
+                    key={phase.phaseNumber}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/[0.02] px-2.5 py-1.5 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-zinc-100">
+                        P{phase.phaseNumber}
+                      </span>
+                      <span className="font-mono text-zinc-400">
+                        {phase.scheduledDate}
+                        {phase.endDate ? ` → ${phase.endDate}` : ""}
+                      </span>
+                      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-zinc-300">
+                        {phase.shiftLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <span className="truncate max-w-[180px]">
+                        {phase.defaultTeam.join(", ") || "No team"}
+                      </span>
+                      <span className="font-mono text-zinc-300">
+                        {count} tasks
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={!preview || saving}
+            onClick={() => void handleImport()}
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Import Schedule
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 export function DowntimeView({
   rosterCache,
   onRosterLoaded,
-  onOpenRosterModal,
 }: DowntimeViewProps) {
   const { showToast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(() =>
     getBucharestNowParts().date.slice(0, 7)
   );
-  const [windowFilter, setWindowFilter] = useState<"ALL" | MaintenanceWindow>("ALL");
-  const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [schedule, setSchedule] = useState<DowntimeMonthSchedule | null>(null);
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submittingKey, setSubmittingKey] = useState<string | null>(null);
 
-  const [manageModalOpen, setManageModalOpen] = useState(false);
-  const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<MaintenanceTask | null>(null);
+  const [phaseFilter, setPhaseFilter] = useState<number | "ALL">("ALL");
+  const [windowFilter, setWindowFilter] = useState<"ALL" | MaintenanceWindow>(
+    "ALL"
+  );
+  const [locationFilter, setLocationFilter] = useState<string>("ALL");
+  const [personFilter, setPersonFilter] = useState<string>("ALL");
+
+  // Selection map for multi-person completion per task: taskId -> Set<person>
+  const [selectedPeopleByTask, setSelectedPeopleByTask] = useState<
+    Record<string, string[]>
+  >({});
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const [editingTaskPeople, setEditingTaskPeople] =
+    useState<DowntimeTask | null>(null);
+  const [editingPhaseTeam, setEditingPhaseTeam] =
+    useState<DowntimePhase | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [tasksRes, completionsRes] = await Promise.all([
-        fetchMaintenanceTasks(),
+      const [scheduleRes, completionsRes] = await Promise.all([
+        fetchDowntimeSchedule(selectedMonth),
         fetchCompletions({ month: selectedMonth }),
       ]);
-      setTasks(tasksRes);
+      setSchedule(scheduleRes);
       setCompletions(completionsRes);
 
       if (!(selectedMonth in rosterCache)) {
@@ -369,293 +600,174 @@ export function DowntimeView({
     void loadData();
   }, [loadData]);
 
-  const roster = rosterCache[selectedMonth] ?? null;
-
-  const monthDates = useMemo(() => {
-    const parsed = parseMonthKey(selectedMonth);
-    if (!parsed) return { MORNING: [] as string[], NIGHT: [] as string[] };
-    return getMaintenanceDatesForMonth(parsed.year, parsed.month1Based);
+  // Reset filters when switching months
+  useEffect(() => {
+    setPhaseFilter("ALL");
+    setWindowFilter("ALL");
+    setLocationFilter("ALL");
+    setPersonFilter("ALL");
+    setSelectedPeopleByTask({});
   }, [selectedMonth]);
 
-  const occurrences = useMemo(() => {
-    const parsed = parseMonthKey(selectedMonth);
-    if (!parsed) return [];
-    return generateMaintenanceOccurrencesForMonth({
-      year: parsed.year,
-      month1Based: parsed.month1Based,
-      tasks,
-      completions,
-      roster,
+  const roster = rosterCache[selectedMonth] ?? null;
+
+  const completionsByTaskId = useMemo(() => {
+    const map = new Map<string, TaskCompletion[]>();
+    for (const c of completions) {
+      if (c.taskType !== "MAINTENANCE") continue;
+      const list = map.get(c.taskId) ?? [];
+      list.push(c);
+      map.set(c.taskId, list);
+    }
+    return map;
+  }, [completions]);
+
+  const allPeopleSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    if (roster) {
+      for (const emp of roster.employees) set.add(emp);
+    }
+    if (schedule) {
+      for (const p of schedule.phases) {
+        for (const name of p.defaultTeam) set.add(name);
+      }
+      for (const t of schedule.tasks) {
+        for (const name of t.assignedPeople) set.add(name);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [roster, schedule]);
+
+  const allLocations = useMemo(() => {
+    if (!schedule) return [];
+    const set = new Set<string>();
+    for (const t of schedule.tasks) {
+      if (t.location) set.add(t.location);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [schedule]);
+
+  const filteredPhases = useMemo(() => {
+    if (!schedule) return [];
+    return schedule.phases.filter((p) => {
+      if (phaseFilter !== "ALL" && p.phaseNumber !== phaseFilter) return false;
+      if (windowFilter !== "ALL" && p.window !== windowFilter) return false;
+      return true;
     });
-  }, [selectedMonth, tasks, completions, roster]);
+  }, [schedule, phaseFilter, windowFilter]);
 
-  const morningOccurrences = useMemo(
-    () => occurrences.filter((o) => o.window === "MORNING"),
-    [occurrences]
-  );
-  const nightOccurrences = useMemo(
-    () => occurrences.filter((o) => o.window === "NIGHT"),
-    [occurrences]
-  );
+  const totalTasks = schedule?.tasks.length ?? 0;
+  const completedTasksCount = useMemo(() => {
+    if (!schedule) return 0;
+    return schedule.tasks.filter(
+      (t) => (completionsByTaskId.get(t.id)?.length ?? 0) > 0
+    ).length;
+  }, [schedule, completionsByTaskId]);
 
-  const morningDone = morningOccurrences.filter((o) => o.status === "completed").length;
-  const nightDone = nightOccurrences.filter((o) => o.status === "completed").length;
+  const togglePersonSelection = (taskId: string, person: string) => {
+    setSelectedPeopleByTask((prev) => {
+      const current = prev[taskId] ?? [];
+      const exists = current.some(
+        (p) => p.toLowerCase() === person.toLowerCase()
+      );
+      const next = exists
+        ? current.filter((p) => p.toLowerCase() !== person.toLowerCase())
+        : [...current, person];
+      return { ...prev, [taskId]: next };
+    });
+  };
 
-  const handleComplete = async (occ: MaintenanceOccurrence, employee: string) => {
-    const key = `${occ.occurrenceId}:${employee}`;
-    const optimisticId = `optimistic:${key}:${Date.now()}`;
-    const optimisticCompletion: TaskCompletion = {
-      id: optimisticId,
-      occurrenceId: occ.occurrenceId,
-      taskId: occ.taskId,
-      taskType: "MAINTENANCE",
-      taskTitle: occ.taskTitle,
-      scheduledDate: occ.scheduledDate,
-      window: occ.window,
-      completedBy: employee,
-      completedAt: new Date().toISOString(),
-    };
+  const handleCompleteForPeople = async (
+    task: DowntimeTask,
+    people: string[]
+  ) => {
+    if (people.length === 0) return;
+    setCompletingTaskId(task.id);
+    const taskTitle = buildDowntimeTaskTitle(task);
+    const optimisticIds: string[] = [];
+    const nowIso = new Date().toISOString();
 
-    setSubmittingKey(key);
-    setCompletions((prev) => [...prev, optimisticCompletion]);
+    const optimisticItems: TaskCompletion[] = people.map((person, idx) => {
+      const optId = `optimistic:${task.id}:${person}:${Date.now()}:${idx}`;
+      optimisticIds.push(optId);
+      return {
+        id: optId,
+        occurrenceId: task.id,
+        taskId: task.id,
+        taskType: "MAINTENANCE",
+        taskTitle,
+        scheduledDate: task.scheduledDate,
+        window: task.window,
+        completedBy: person,
+        completedAt: nowIso,
+      };
+    });
+
+    setCompletions((prev) => [...prev, ...optimisticItems]);
 
     try {
-      const saved = await createCompletion({
-        occurrenceId: occ.occurrenceId,
-        taskId: occ.taskId,
-        taskType: "MAINTENANCE",
-        taskTitle: occ.taskTitle,
-        scheduledDate: occ.scheduledDate,
-        window: occ.window,
-        completedBy: employee,
-      });
-      setCompletions((prev) =>
-        prev.map((c) => (c.id === optimisticId ? saved : c))
+      const savedList = await Promise.all(
+        people.map((person) =>
+          createCompletion({
+            occurrenceId: task.id,
+            taskId: task.id,
+            taskType: "MAINTENANCE",
+            taskTitle,
+            scheduledDate: task.scheduledDate,
+            window: task.window,
+            completedBy: person,
+          })
+        )
       );
+
+      setCompletions((prev) => {
+        const withoutOpt = prev.filter((c) => !optimisticIds.includes(c.id));
+        return [...withoutOpt, ...savedList];
+      });
+      setSelectedPeopleByTask((prev) => ({ ...prev, [task.id]: [] }));
       showToast({
         tone: "success",
-        title: "Maintenance recorded",
-        description: `${occ.taskTitle} · ${employee}`,
+        title: "Downtime task completed",
+        description: `Studio ${task.studio} · ${people.join(", ")}`,
       });
     } catch (err) {
-      setCompletions((prev) => prev.filter((c) => c.id !== optimisticId));
+      setCompletions((prev) =>
+        prev.filter((c) => !optimisticIds.includes(c.id))
+      );
       showToast({
         tone: "error",
         title: "Failed to record completion",
         description: getErrorMessage(err),
       });
-      try {
-        const updated = await fetchCompletions({ month: selectedMonth });
-        setCompletions(updated);
-      } catch {
-        // ignore
-      }
     } finally {
-      setSubmittingKey(null);
+      setCompletingTaskId(null);
     }
   };
 
-  const renderWindowSection = (
-    windowType: MaintenanceWindow,
-    title: string,
-    subtitle: string,
-    dates: string[]
-  ) => {
-    const isMorning = windowType === "MORNING";
-    const Icon = isMorning ? Sun : Moon;
-    const windowOccurrences = isMorning ? morningOccurrences : nightOccurrences;
-
-    const byDate = new Map<string, MaintenanceOccurrence[]>();
-    for (const d of dates) byDate.set(d, []);
-    for (const occ of windowOccurrences) {
-      const list = byDate.get(occ.scheduledDate) ?? [];
-      list.push(occ);
-      byDate.set(occ.scheduledDate, list);
+  const handleClearMonth = async () => {
+    setClearing(true);
+    try {
+      await deleteDowntimeSchedule(selectedMonth);
+      setSchedule(null);
+      setConfirmClearOpen(false);
+      showToast({
+        tone: "success",
+        title: "Month schedule cleared",
+        description: `Uploaded schedule removed for ${selectedMonth}. Completion history is preserved.`,
+      });
+    } catch (err) {
+      showToast({
+        tone: "error",
+        title: "Failed to clear schedule",
+        description: getErrorMessage(err),
+      });
+    } finally {
+      setClearing(false);
     }
-    const sortedDates = Array.from(byDate.keys()).sort();
-    const doneCount = windowOccurrences.filter((o) => o.status === "completed").length;
-
-    return (
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
-          <div className="flex items-center gap-2.5">
-            <Icon className="h-4 w-4 text-zinc-400" />
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-100">{title}</h2>
-              <p className="text-xs text-zinc-500">{subtitle}</p>
-            </div>
-          </div>
-
-          <span className="font-mono text-xs tabular-nums text-zinc-400">
-            {isMorning ? "Shift M" : "Shift N"} · {doneCount}/{windowOccurrences.length} done
-          </span>
-        </div>
-
-        <div className="divide-y divide-white/[0.06]">
-          {sortedDates.map((dateStr) => {
-            const dateOccs = byDate.get(dateStr) ?? [];
-            const { weekday, dayNum, monthShort } = formatShortDate(dateStr);
-
-            return (
-              <div
-                key={dateStr}
-                className="grid grid-cols-1 gap-3 py-4 first:pt-1 md:grid-cols-[120px_1fr]"
-              >
-                {/* Timeline Date Column */}
-                <div className="flex items-baseline gap-2 md:flex-col md:gap-0.5 md:pt-0.5">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-base font-semibold tabular-nums text-zinc-100">
-                      {dayNum}
-                    </span>
-                    <span className="text-xs font-medium text-zinc-400">
-                      {monthShort} · {weekday}
-                    </span>
-                  </div>
-                  <span className="font-mono text-[11px] tabular-nums text-zinc-600">
-                    {dateStr}
-                  </span>
-                </div>
-
-                {/* Tasks for this maintenance date */}
-                <div className="divide-y divide-white/[0.06]">
-                  {dateOccs.length === 0 ? (
-                    <p className="py-2 text-xs text-zinc-500">
-                      No enabled {windowType.toLowerCase()} maintenance tasks for this date.
-                    </p>
-                  ) : (
-                    dateOccs.map((occ) => {
-                      const completedByMap = new Map(
-                        occ.completions.map((c) => [c.completedBy, c.completedAt])
-                      );
-                      const allEmployees = Array.from(
-                        new Set([...occ.eligibleEmployees, ...completedByMap.keys()])
-                      );
-                      const isDoneOverall = occ.status === "completed";
-
-                      return (
-                        <article
-                          key={occ.occurrenceId}
-                          className="py-3.5 first:pt-0 last:pb-0"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-[15px] font-medium text-zinc-100">
-                                {occ.taskTitle}
-                              </h3>
-                              {occ.taskDescription && (
-                                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                                  {occ.taskDescription}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2.5 text-xs">
-                              <span className="font-mono tabular-nums text-zinc-500">
-                                {occ.completionCount}
-                                {occ.eligibleEmployees.length > 0
-                                  ? `/${occ.eligibleEmployees.length}`
-                                  : ""}{" "}
-                                signed
-                              </span>
-                              <span className="text-zinc-700">·</span>
-                              {isDoneOverall ? (
-                                <StatusDot tone="emerald">Completed</StatusDot>
-                              ) : (
-                                <StatusDot tone="neutral">Pending</StatusDot>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-3">
-                            {allEmployees.length === 0 ? (
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                                <span>
-                                  {roster
-                                    ? `No technicians scheduled on ${isMorning ? "M" : "N"} shift on ${dateStr}.`
-                                    : "No monthly roster loaded for this month."}
-                                </span>
-                                {!roster && (
-                                  <button
-                                    type="button"
-                                    onClick={onOpenRosterModal}
-                                    className="text-zinc-200 underline-offset-2 hover:underline"
-                                  >
-                                    Load Roster →
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5">
-                                <div className="flex flex-wrap gap-2">
-                                  {allEmployees.map((emp) => {
-                                    const completedAt = completedByMap.get(emp);
-                                    const isEmpDone = Boolean(completedAt);
-                                    const key = `${occ.occurrenceId}:${emp}`;
-                                    const busy = submittingKey === key;
-
-                                    return (
-                                      <button
-                                        key={emp}
-                                        type="button"
-                                        disabled={isEmpDone || submittingKey !== null}
-                                        title={
-                                          completedAt
-                                            ? `Completed by ${emp} at ${formatBucharestDateTime(completedAt)}`
-                                            : `Mark completed by ${emp}`
-                                        }
-                                        onClick={() => void handleComplete(occ, emp)}
-                                        className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-medium transition ${
-                                          isEmpDone
-                                            ? "cursor-default border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                            : "border-white/[0.08] bg-white/[0.03] text-zinc-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 active:scale-[0.98]"
-                                        }`}
-                                      >
-                                        {busy ? (
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                                        ) : (
-                                          <Check
-                                            className={`h-3.5 w-3.5 ${
-                                              isEmpDone ? "text-emerald-400" : "text-zinc-500"
-                                            }`}
-                                          />
-                                        )}
-                                        <span>{emp}</span>
-                                        {completedAt && (
-                                          <span className="font-mono text-[11px] tabular-nums text-emerald-300/75">
-                                            {formatBucharestDateTime(completedAt).slice(11, 16)}
-                                          </span>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <p className="text-[11px] text-zinc-600">
-                                  Each technician signs independently
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    );
   };
 
-  const morningPct =
-    morningOccurrences.length > 0
-      ? Math.round((morningDone / morningOccurrences.length) * 100)
-      : 0;
-  const nightPct =
-    nightOccurrences.length > 0
-      ? Math.round((nightDone / nightOccurrences.length) * 100)
-      : 0;
+  const overallPct =
+    totalTasks > 0 ? Math.round((completedTasksCount / totalTasks) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -666,7 +778,9 @@ export function DowntimeView({
             Downtime Maintenance
           </h1>
           <p className="mt-0.5 text-xs text-zinc-500">
-            Scheduled monthly maintenance windows · {formatMonthTitle(selectedMonth)}
+            {schedule
+              ? `${formatMonthTitle(selectedMonth)} · ${schedule.phases.length} phases · ${schedule.tasks.length} studio tasks`
+              : `No schedule uploaded for ${formatMonthTitle(selectedMonth)}`}
           </p>
         </div>
 
@@ -698,99 +812,22 @@ export function DowntimeView({
             </button>
           </div>
 
-          <Button variant="ghost" onClick={() => setManageModalOpen(true)}>
-            <Settings2 className="h-3.5 w-3.5" />
-            <span>Definitions ({tasks.length})</span>
-          </Button>
+          {schedule && (
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmClearOpen(true)}
+              title="Clear this month's schedule (history stays saved)"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-zinc-400" />
+              <span className="hidden sm:inline">Clear</span>
+            </Button>
+          )}
 
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingTask(null);
-              setFormModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            <span>New Task</span>
+          <Button variant="primary" onClick={() => setImportModalOpen(true)}>
+            <Upload className="h-4 w-4" />
+            <span>Import Excel</span>
           </Button>
         </div>
-      </div>
-
-      {/* Monthly Window Summary Strip */}
-      <div className="grid grid-cols-1 gap-4 border-y border-white/[0.06] py-3.5 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setWindowFilter((w) => (w === "MORNING" ? "ALL" : "MORNING"))}
-          className="group space-y-2 text-left transition hover:opacity-90"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-zinc-200">
-              <Sun className="h-3.5 w-3.5 text-zinc-400" />
-              <span>Morning Window (M)</span>
-              <span className="font-mono text-[11px] tabular-nums text-zinc-500">
-                {monthDates.MORNING.join(" · ")}
-              </span>
-            </div>
-            <span className="font-mono text-xs tabular-nums text-zinc-300">
-              {morningDone}/{morningOccurrences.length}
-            </span>
-          </div>
-          <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full bg-zinc-100 transition-all"
-              style={{ width: `${morningPct}%` }}
-            />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setWindowFilter((w) => (w === "NIGHT" ? "ALL" : "NIGHT"))}
-          className="group space-y-2 text-left transition hover:opacity-90"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-zinc-200">
-              <Moon className="h-3.5 w-3.5 text-zinc-400" />
-              <span>Night Window (N)</span>
-              <span className="font-mono text-[11px] tabular-nums text-zinc-500">
-                {monthDates.NIGHT.join(" · ")}
-              </span>
-            </div>
-            <span className="font-mono text-xs tabular-nums text-zinc-300">
-              {nightDone}/{nightOccurrences.length}
-            </span>
-          </div>
-          <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full bg-zinc-100 transition-all"
-              style={{ width: `${nightPct}%` }}
-            />
-          </div>
-        </button>
-      </div>
-
-      {/* Window Filter Pills */}
-      <div className="inline-flex rounded-lg bg-white/[0.04] p-1">
-        {(
-          [
-            { id: "ALL", label: "All Windows" },
-            { id: "MORNING", label: "Morning (M)" },
-            { id: "NIGHT", label: "Night (N)" },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setWindowFilter(tab.id)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-              windowFilter === tab.id
-                ? "bg-zinc-100 font-semibold text-zinc-950"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {error && (
@@ -806,113 +843,521 @@ export function DowntimeView({
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      ) : tasks.length === 0 && occurrences.length === 0 ? (
+      ) : !schedule ? (
         <EmptyState
-          icon={<Clock className="h-5 w-5" />}
-          title="No monthly maintenance tasks defined"
-          description="Create fixed Morning (1st Mon–Wed) or Night (3rd Mon–Wed) maintenance definitions to populate every month."
+          icon={<FileSpreadsheet className="h-5 w-5" />}
+          title={`No downtime schedule for ${formatMonthTitle(selectedMonth)}`}
+          description="Upload the 2 monthly Downtime Excel files (Phases 1–4 and Phases 5–8) to generate this month's studio tasks. Past completion history is always preserved."
           action={
-            <Button
-              variant="primary"
-              onClick={() => {
-                setEditingTask(null);
-                setFormModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              New Maintenance Task
+            <Button variant="primary" onClick={() => setImportModalOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import Downtime Excel
             </Button>
           }
         />
       ) : (
-        <div className="space-y-10">
-          {(windowFilter === "ALL" || windowFilter === "MORNING") &&
-            renderWindowSection(
-              "MORNING",
-              "Morning Maintenance",
-              "First Monday, Tuesday, and Wednesday · M Shift (06:00–14:00)",
-              monthDates.MORNING
-            )}
-          {(windowFilter === "ALL" || windowFilter === "NIGHT") &&
-            renderWindowSection(
-              "NIGHT",
-              "Night Maintenance",
-              "Third Monday, Tuesday, and Wednesday · N Shift (22:00–06:00)",
-              monthDates.NIGHT
-            )}
-        </div>
-      )}
+        <>
+          {/* Progress Bar */}
+          <div className="space-y-2 border-y border-white/[0.06] py-3.5">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-medium text-zinc-300">
+                Monthly Downtime Progress
+              </span>
+              <span className="font-mono tabular-nums text-zinc-200">
+                {completedTasksCount}/{totalTasks} studios ({overallPct}%)
+              </span>
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full bg-emerald-400 transition-all"
+                style={{ width: `${overallPct}%` }}
+              />
+            </div>
+          </div>
 
-      {/* Definitions Manager Modal */}
-      <Modal
-        isOpen={manageModalOpen}
-        onClose={() => setManageModalOpen(false)}
-        title="Maintenance Definitions"
-        subtitle="Fixed tasks reused across every calendar month"
-        icon={<Settings2 className="h-4 w-4" />}
-        maxWidthClass="max-w-2xl"
-      >
-        <div className="space-y-3">
-          {tasks.length === 0 ? (
-            <p className="py-6 text-center text-xs text-zinc-500">
-              No maintenance definitions configured yet.
-            </p>
-          ) : (
-            <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between gap-3 py-3"
+          {/* Filters Bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Phase Pills */}
+            <div className="flex flex-wrap items-center gap-1 rounded-lg bg-white/[0.04] p-1">
+              <button
+                type="button"
+                onClick={() => setPhaseFilter("ALL")}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  phaseFilter === "ALL"
+                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                All Phases
+              </button>
+              {schedule.phases.map((p) => (
+                <button
+                  key={p.phaseNumber}
+                  type="button"
+                  onClick={() => setPhaseFilter(p.phaseNumber)}
+                  className={`rounded-md px-2.5 py-1 font-mono text-xs font-medium transition ${
+                    phaseFilter === p.phaseNumber
+                      ? "bg-zinc-100 font-semibold text-zinc-950"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-zinc-100">
-                        {task.title}
-                      </span>
-                      {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
-                    </div>
-                    <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
-                      {task.window === "MORNING"
-                        ? "MORNING · M Shift · 1st Mon–Wed"
-                        : "NIGHT · N Shift · 3rd Mon–Wed"}
-                    </div>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setManageModalOpen(false);
-                      setEditingTask(task);
-                      setFormModalOpen(true);
-                    }}
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
-                </div>
+                  P{p.phaseNumber}
+                </button>
               ))}
             </div>
-          )}
-          <div className="flex justify-end border-t border-white/[0.06] pt-3">
-            <Button
-              variant="primary"
-              onClick={() => {
-                setManageModalOpen(false);
-                setEditingTask(null);
-                setFormModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              New Maintenance Task
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
-      <MaintenanceFormModal
-        isOpen={formModalOpen}
-        editingTask={editingTask}
-        onClose={() => setFormModalOpen(false)}
-        onSaved={() => void loadData()}
+            {/* Shift Filter */}
+            <div className="inline-flex rounded-lg bg-white/[0.04] p-1">
+              {(
+                [
+                  { id: "ALL", label: "All Shifts" },
+                  { id: "MORNING", label: "Day" },
+                  { id: "NIGHT", label: "Night" },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setWindowFilter(item.id)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                    windowFilter === item.id
+                      ? "bg-zinc-100 font-semibold text-zinc-950"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Location Filter */}
+            {allLocations.length > 0 && (
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="h-8 rounded-lg border border-white/[0.08] bg-zinc-900 px-2.5 text-xs text-zinc-200 focus:border-white/[0.25] focus:outline-none"
+                aria-label="Filter by location"
+              >
+                <option value="ALL">All Locations</option>
+                {allLocations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Person Filter */}
+            {allPeopleSuggestions.length > 0 && (
+              <select
+                value={personFilter}
+                onChange={(e) => setPersonFilter(e.target.value)}
+                className="h-8 rounded-lg border border-white/[0.08] bg-zinc-900 px-2.5 text-xs text-zinc-200 focus:border-white/[0.25] focus:outline-none"
+                aria-label="Filter by person"
+              >
+                <option value="ALL">All People</option>
+                {allPeopleSuggestions.map((person) => (
+                  <option key={person} value={person}>
+                    {person}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Phase Sections */}
+          <div className="space-y-8">
+            {filteredPhases.map((phase) => {
+              const phaseTasks = schedule.tasks.filter((t) => {
+                if (t.phaseNumber !== phase.phaseNumber) return false;
+                if (
+                  locationFilter !== "ALL" &&
+                  t.location !== locationFilter
+                ) {
+                  return false;
+                }
+                if (
+                  personFilter !== "ALL" &&
+                  !t.assignedPeople.some(
+                    (p) => p.toLowerCase() === personFilter.toLowerCase()
+                  )
+                ) {
+                  return false;
+                }
+                return true;
+              });
+
+              const doneInPhase = phaseTasks.filter(
+                (t) => (completionsByTaskId.get(t.id)?.length ?? 0) > 0
+              ).length;
+              const isMorning = phase.window === "MORNING";
+              const ShiftIcon = isMorning ? Sun : Moon;
+
+              return (
+                <section key={phase.phaseNumber} className="space-y-3">
+                  {/* Phase Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-xs font-bold text-zinc-950">
+                        PHASE {phase.phaseNumber}
+                      </span>
+                      <span className="text-sm font-semibold text-zinc-100">
+                        {formatShortDate(phase.scheduledDate)}
+                        {phase.endDate
+                          ? ` → ${formatShortDate(phase.endDate)}`
+                          : ""}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-0.5 text-xs text-zinc-300">
+                        <ShiftIcon className="h-3 w-3 text-zinc-400" />
+                        {phase.shiftLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingPhaseTeam(phase)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300 transition hover:border-white/[0.2] hover:text-zinc-100"
+                      >
+                        <Users className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>
+                          {phase.defaultTeam.length > 0
+                            ? phase.defaultTeam.join(", ")
+                            : "Set Team"}
+                        </span>
+                      </button>
+                      <span className="font-mono text-xs tabular-nums text-zinc-400">
+                        {doneInPhase}/{phaseTasks.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Phase Notice Banners */}
+                  {phase.notices.length > 0 && (
+                    <div className="space-y-1.5">
+                      {phase.notices.map((notice) => (
+                        <div
+                          key={notice}
+                          className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
+                        >
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                          <span>{notice}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tasks List */}
+                  {phaseTasks.length === 0 ? (
+                    <p className="py-3 text-xs text-zinc-500">
+                      No studio tasks match the current filters in Phase{" "}
+                      {phase.phaseNumber}.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.06] bg-white/[0.015]">
+                      {phaseTasks.map((task) => {
+                        const taskCompletions =
+                          completionsByTaskId.get(task.id) ?? [];
+                        const completedByMap = new Map(
+                          taskCompletions.map((c) => [
+                            c.completedBy.toLowerCase(),
+                            c,
+                          ])
+                        );
+                        const allTaskPeople = Array.from(
+                          new Set([
+                            ...task.assignedPeople,
+                            ...taskCompletions.map((c) => c.completedBy),
+                          ])
+                        );
+                        const pendingPeople = allTaskPeople.filter(
+                          (p) => !completedByMap.has(p.toLowerCase())
+                        );
+                        const selectedForTask =
+                          selectedPeopleByTask[task.id] ?? [];
+                        const isBusy = completingTaskId === task.id;
+                        const isDone = taskCompletions.length > 0;
+
+                        return (
+                          <article key={task.id} className="space-y-3 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-sm font-semibold text-zinc-100">
+                                    Studio {task.studio}
+                                  </h3>
+                                  {task.location && (
+                                    <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">
+                                      <MapPin className="h-3 w-3 text-zinc-400" />
+                                      {task.location}
+                                    </span>
+                                  )}
+                                  {task.accessInterval && (
+                                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-400">
+                                      <Clock className="h-3 w-3" />
+                                      {task.accessInterval}
+                                    </span>
+                                  )}
+                                  {task.idealTimeMin !== undefined && (
+                                    <span className="font-mono text-[11px] text-zinc-500">
+                                      {task.idealTimeMin}m
+                                    </span>
+                                  )}
+                                  {task.tablesCount !== undefined && (
+                                    <span className="font-mono text-[11px] text-zinc-500">
+                                      {task.tablesCount}{" "}
+                                      {task.tablesCount === 1
+                                        ? "table"
+                                        : "tables"}
+                                    </span>
+                                  )}
+                                  {task.sectionNote && (
+                                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">
+                                      {task.sectionNote}
+                                    </span>
+                                  )}
+                                  {task.isPass && (
+                                    <span className="rounded bg-zinc-500/20 px-1.5 py-0.5 text-[11px] text-zinc-400">
+                                      Pass
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs leading-relaxed text-zinc-300">
+                                  {task.description}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {isDone ? (
+                                  <StatusDot tone="emerald">
+                                    Completed ({taskCompletions.length})
+                                  </StatusDot>
+                                ) : (
+                                  <StatusDot tone="neutral">Pending</StatusDot>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* People Assignment & Multi-Person Completion */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {allTaskPeople.map((person) => {
+                                  const comp = completedByMap.get(
+                                    person.toLowerCase()
+                                  );
+                                  if (comp) {
+                                    return (
+                                      <span
+                                        key={person}
+                                        title={`Completed by ${comp.completedBy} at ${formatBucharestDateTime(comp.completedAt)}`}
+                                        className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300"
+                                      >
+                                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                        <span>{comp.completedBy}</span>
+                                        <span className="font-mono text-[10px] text-emerald-300/75">
+                                          {formatBucharestDateTime(
+                                            comp.completedAt
+                                          ).slice(11, 16)}
+                                        </span>
+                                      </span>
+                                    );
+                                  }
+
+                                  const isChecked = selectedForTask.some(
+                                    (s) =>
+                                      s.toLowerCase() === person.toLowerCase()
+                                  );
+                                  return (
+                                    <button
+                                      key={person}
+                                      type="button"
+                                      disabled={isBusy}
+                                      onClick={() =>
+                                        togglePersonSelection(task.id, person)
+                                      }
+                                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                                        isChecked
+                                          ? "border-zinc-100 bg-zinc-100 text-zinc-950"
+                                          : "border-white/[0.1] bg-white/[0.03] text-zinc-300 hover:border-white/[0.25] hover:text-zinc-100"
+                                      }`}
+                                    >
+                                      <span
+                                        className={`flex h-3.5 w-3.5 items-center justify-center rounded border ${
+                                          isChecked
+                                            ? "border-zinc-950 bg-zinc-950 text-zinc-100"
+                                            : "border-zinc-500"
+                                        }`}
+                                      >
+                                        {isChecked && (
+                                          <Check className="h-2.5 w-2.5" />
+                                        )}
+                                      </span>
+                                      <span>{person}</span>
+                                    </button>
+                                  );
+                                })}
+
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingTaskPeople(task)}
+                                  className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-dashed border-white/[0.14] px-2.5 py-1 text-xs text-zinc-400 transition hover:border-white/[0.3] hover:text-zinc-100"
+                                >
+                                  <UserPlus className="h-3.5 w-3.5" />
+                                  <span>People</span>
+                                </button>
+                              </div>
+
+                              {/* Complete Action Buttons */}
+                              {pendingPeople.length > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                  {selectedForTask.length > 0 ? (
+                                    <Button
+                                      type="button"
+                                      variant="primary"
+                                      disabled={isBusy}
+                                      onClick={() =>
+                                        void handleCompleteForPeople(
+                                          task,
+                                          selectedForTask
+                                        )
+                                      }
+                                    >
+                                      {isBusy ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <CheckCheck className="h-3.5 w-3.5" />
+                                      )}
+                                      <span>
+                                        Complete ({selectedForTask.length})
+                                      </span>
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      disabled={isBusy}
+                                      onClick={() =>
+                                        void handleCompleteForPeople(
+                                          task,
+                                          pendingPeople
+                                        )
+                                      }
+                                    >
+                                      {isBusy ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <CheckCheck className="h-3.5 w-3.5" />
+                                      )}
+                                      <span>
+                                        Complete All ({pendingPeople.length})
+                                      </span>
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Excel Import Modal */}
+      <DowntimeImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImported={(imported) => {
+          if (imported.monthKey !== selectedMonth) {
+            setSelectedMonth(imported.monthKey);
+          } else {
+            setSchedule(imported);
+          }
+        }}
+      />
+
+      {/* Edit Task People Modal */}
+      <PeopleEditorModal
+        isOpen={Boolean(editingTaskPeople)}
+        title={
+          editingTaskPeople
+            ? `Assign People · Studio ${editingTaskPeople.studio}`
+            : "Assign People"
+        }
+        subtitle={
+          editingTaskPeople
+            ? `Phase ${editingTaskPeople.phaseNumber} · ${editingTaskPeople.description}`
+            : ""
+        }
+        initialPeople={editingTaskPeople?.assignedPeople ?? []}
+        suggestions={allPeopleSuggestions}
+        onClose={() => setEditingTaskPeople(null)}
+        onSave={async (people) => {
+          if (!editingTaskPeople || !schedule) return;
+          const updated = await updateDowntimeTask({
+            monthKey: schedule.monthKey,
+            taskId: editingTaskPeople.id,
+            assignedPeople: people,
+          });
+          setSchedule(updated);
+          showToast({
+            tone: "success",
+            title: "Task team updated",
+            description: `Studio ${editingTaskPeople.studio} · ${people.length} assigned`,
+          });
+        }}
+      />
+
+      {/* Edit Phase Team Modal */}
+      <PeopleEditorModal
+        isOpen={Boolean(editingPhaseTeam)}
+        title={
+          editingPhaseTeam
+            ? `Phase ${editingPhaseTeam.phaseNumber} Team`
+            : "Phase Team"
+        }
+        subtitle={
+          editingPhaseTeam
+            ? `${editingPhaseTeam.scheduledDate} · ${editingPhaseTeam.shiftLabel}`
+            : ""
+        }
+        initialPeople={editingPhaseTeam?.defaultTeam ?? []}
+        suggestions={allPeopleSuggestions}
+        showApplyToAllToggle
+        onClose={() => setEditingPhaseTeam(null)}
+        onSave={async (people, applyToAllTasks) => {
+          if (!editingPhaseTeam || !schedule) return;
+          const updated = await updateDowntimePhaseTeam({
+            monthKey: schedule.monthKey,
+            phaseNumber: editingPhaseTeam.phaseNumber,
+            defaultTeam: people,
+            applyToAllTasks,
+          });
+          setSchedule(updated);
+          showToast({
+            tone: "success",
+            title: `Phase ${editingPhaseTeam.phaseNumber} team updated`,
+            description: applyToAllTasks
+              ? "Applied to all tasks in this phase"
+              : "Updated phase default team",
+          });
+        }}
+      />
+
+      {/* Confirm Clear Month */}
+      <ConfirmDialog
+        isOpen={confirmClearOpen}
+        title="Clear month schedule?"
+        description={`This removes the uploaded Downtime schedule for ${formatMonthTitle(selectedMonth)} so you can re-upload. All completion history remains saved.`}
+        confirmLabel="Clear Schedule"
+        busy={clearing}
+        onCancel={() => setConfirmClearOpen(false)}
+        onConfirm={() => void handleClearMonth()}
       />
     </div>
   );

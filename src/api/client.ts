@@ -13,6 +13,8 @@ import type {
   DailyTask,
   DailyTaskResponse,
   DeleteResponse,
+  DowntimeMonthSchedule,
+  DowntimeScheduleResponse,
   HistoryCategory,
   HistoryItem,
   HistoryListResponse,
@@ -29,6 +31,8 @@ import type {
   TaskCompletion,
   TasksListResponse,
   UpdateDailyTaskRequest,
+  UpdateDowntimePhaseTeamRequest,
+  UpdateDowntimeTaskRequest,
   UpdateMaintenanceTaskRequest,
 } from "../shared/types";
 
@@ -164,6 +168,65 @@ export async function deleteMaintenanceTask(id: string): Promise<DeleteResponse>
   return requestJson<DeleteResponse>(`/api/maintenance/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+// --- Downtime Monthly Excel Schedule ---
+
+export async function fetchDowntimeSchedule(
+  month: string
+): Promise<DowntimeMonthSchedule | null> {
+  const res = await requestJson<DowntimeScheduleResponse>(
+    `/api/downtime?month=${encodeURIComponent(month)}`
+  );
+  return res.schedule;
+}
+
+export async function saveDowntimeSchedule(
+  schedule: DowntimeMonthSchedule
+): Promise<DowntimeMonthSchedule> {
+  const res = await requestJson<DowntimeScheduleResponse>("/api/downtime", {
+    method: "POST",
+    body: JSON.stringify({ schedule }),
+  });
+  if (!res.schedule) {
+    throw new Error("Server returned empty schedule");
+  }
+  return res.schedule;
+}
+
+export async function updateDowntimeTask(
+  payload: UpdateDowntimeTaskRequest
+): Promise<DowntimeMonthSchedule> {
+  const res = await requestJson<DowntimeScheduleResponse>("/api/downtime", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  if (!res.schedule) {
+    throw new Error("Server returned empty schedule");
+  }
+  return res.schedule;
+}
+
+export async function updateDowntimePhaseTeam(
+  payload: UpdateDowntimePhaseTeamRequest
+): Promise<DowntimeMonthSchedule> {
+  const res = await requestJson<DowntimeScheduleResponse>("/api/downtime", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  if (!res.schedule) {
+    throw new Error("Server returned empty schedule");
+  }
+  return res.schedule;
+}
+
+export async function deleteDowntimeSchedule(
+  month: string
+): Promise<DeleteResponse> {
+  return requestJson<DeleteResponse>(
+    `/api/downtime?month=${encodeURIComponent(month)}`,
+    { method: "DELETE" }
+  );
 }
 
 // --- Completions ---

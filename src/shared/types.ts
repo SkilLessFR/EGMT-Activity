@@ -291,3 +291,67 @@ export interface CreateScheduledLogRequest {
   changedAt?: string;
   notes?: string;
 }
+
+export interface DowntimePhase {
+  phaseNumber: number;
+  title: string;
+  scheduledDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD (for overnight night shifts)
+  shiftLabel: string; // e.g. "DAY SHIFT" | "NIGHT SHIFT"
+  window: MaintenanceWindow; // "MORNING" | "NIGHT"
+  defaultTeam: string[];
+  notices: string[];
+}
+
+export interface DowntimeTask {
+  id: string;
+  monthKey: string; // YYYY-MM
+  phaseNumber: number;
+  scheduledDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  window: MaintenanceWindow;
+  studio: string;
+  accessInterval: string;
+  idealTimeMin?: number;
+  tablesCount?: number;
+  location: string;
+  description: string;
+  isPass: boolean;
+  sectionNote?: string;
+  assignedPeople: string[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DowntimeMonthSchedule {
+  monthKey: string; // YYYY-MM
+  fileNames: string[];
+  uploadedAt: string; // ISO timestamp
+  includePassRows: boolean;
+  phases: DowntimePhase[];
+  tasks: DowntimeTask[];
+}
+
+export interface DowntimeScheduleResponse {
+  schedule: DowntimeMonthSchedule | null;
+}
+
+export interface SaveDowntimeScheduleRequest {
+  schedule: DowntimeMonthSchedule;
+}
+
+export interface UpdateDowntimeTaskRequest {
+  monthKey: string;
+  taskId: string;
+  assignedPeople?: string[];
+  enabled?: boolean;
+  description?: string;
+}
+
+export interface UpdateDowntimePhaseTeamRequest {
+  monthKey: string;
+  phaseNumber: number;
+  defaultTeam: string[];
+  applyToAllTasks?: boolean;
+}
