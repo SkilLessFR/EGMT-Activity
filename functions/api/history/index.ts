@@ -7,15 +7,12 @@ import type {
   HistoryCategory,
   HistoryListResponse,
   MaintenanceTask,
-  TaskCompletion,
 } from "../../../src/shared/types";
 import { errorResponse, isValidIsoDate, jsonResponse } from "../_lib/http";
 import {
-  completionDailyPrefix,
-  completionMaintenancePrefix,
   type Env,
+  getMonthCompletions,
   KV_KEYS,
-  listAllValues,
 } from "../_lib/kv";
 
 const VALID_CATEGORIES = new Set<HistoryCategory>([
@@ -61,29 +58,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const includeMaintenance =
     categoryParam === "ALL" || categoryParam === "MAINTENANCE";
 
-  const [dailyBatches, maintenanceBatches, maintenanceTasks] =
-    await Promise.all([
-      includeDaily
-        ? Promise.all(
-            months.map((m) =>
-              listAllValues<TaskCompletion>(kv, completionDailyPrefix(m))
-            )
-          )
-        : Promise.resolve([]),
-      includeMaintenance
-        ? Promise.all(
-            months.map((m) =>
-              listAllValues<TaskCompletion>(kv, completionMaintenancePrefix(m))
-            )
-          )
-        : Promise.resolve([]),
-      includeMaintenance
-        ? kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json")
-        : Promise.resolve(null),
-    ]);
+  const [monthBatches, maintenanceTasks] = await Promise.all([
+    Promise.all(months.map((m) => getMonthCompletions(kv, m))),
+    includeMaintenance
+      ? kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json")
+      : Promise.resolve(null),
+  ]);
 
-  const dailyCompletions = dailyBatches.flat();
-  const maintenanceCompletions = maintenanceBatches.flat();
+  const allCompletions = monthBatches.flat();
+  const dailyCompletions = includeDaily
+    ? allCompletions.filter((c) => c.taskType === "DAILY")
+    : [];
+  const maintenanceCompletions = includeMaintenance
+    ? allCompletions.filter((c) => c.taskType === "MAINTENANCE")
+    : [];
 
   const items = buildUnifiedHistory({
     dailyCompletions,

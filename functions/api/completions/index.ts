@@ -18,11 +18,11 @@ import {
   parseJsonBody,
 } from "../_lib/http";
 import {
-  completionDailyPrefix,
-  completionMaintenancePrefix,
+  completionsMonthKey,
   dailyCompletionKey,
   type Env,
-  listAllValues,
+  getMonthCompletions,
+  getMonthCompletionsMap,
   maintenanceCompletionKey,
 } from "../_lib/kv";
 
@@ -116,16 +116,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   const kv = context.env.EGMT_ACTIVIT;
-  const [daily, maintenance] = await Promise.all([
-    taskTypeParam === "MAINTENANCE"
-      ? Promise.resolve([])
-      : listAllValues<TaskCompletion>(kv, completionDailyPrefix(monthKey)),
-    taskTypeParam === "DAILY"
-      ? Promise.resolve([])
-      : listAllValues<TaskCompletion>(kv, completionMaintenancePrefix(monthKey)),
-  ]);
-
-  let completions = [...daily, ...maintenance];
+  let completions = await getMonthCompletions(
+    kv,
+    monthKey,
+    taskTypeParam === "DAILY" || taskTypeParam === "MAINTENANCE"
+      ? taskTypeParam
+      : undefined
+  );
   if (dateParam !== null) {
     completions = completions.filter((c) => c.scheduledDate === dateParam);
   }
@@ -156,8 +153,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       ? dailyCompletionKey(monthKey, req.occurrenceId)
       : maintenanceCompletionKey(monthKey, req.occurrenceId, req.completedBy);
 
-  const existing = await kv.get<TaskCompletion>(kvKey, "json");
-  if (existing !== null) {
+  const monthMap = await getMonthCompletionsMap(kv, monthKey);
+  if (monthMap[kvKey] !== undefined) {
     const message =
       req.taskType === "DAILY"
         ? "This daily task occurrence has already been completed"
@@ -179,7 +176,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     completedAt: new Date().toISOString(),
   };
 
-  await kv.put(kvKey, JSON.stringify(completion));
+  monthMap[kvKey] = completion;
+  await kv.put(completionsMonthKey(monthKey), JSON.stringify(monthMap));
 
   const response: CreateCompletionResponse = { completion };
   return jsonResponse(response, 201);

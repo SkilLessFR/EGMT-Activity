@@ -83,10 +83,11 @@ describe("completions API (/api/completions)", () => {
     expect(data1.completion.completedBy).toBe("Palade Alexandru-Ionut");
     expect(data1.completion.completedAt).toBeTruthy();
 
-    // Stored under completion:daily:YYYY-MM:<occurrenceId>
-    expect(
-      kv.store.has("completion:daily:2026-11:daily:t1:2026-11-15:08:00")
-    ).toBe(true);
+    // Stored inside monthly index completions:month:YYYY-MM under completion:daily:YYYY-MM:<occurrenceId>
+    const monthRaw = kv.store.get("completions:month:2026-11");
+    expect(monthRaw).toBeTruthy();
+    const monthMap = JSON.parse(monthRaw!) as Record<string, unknown>;
+    expect("completion:daily:2026-11:daily:t1:2026-11-15:08:00" in monthMap).toBe(true);
 
     // Second completion for same occurrenceId (even by another employee) -> 409 Conflict
     const res2 = await onRequestPost(
@@ -133,16 +134,17 @@ describe("completions API (/api/completions)", () => {
     );
     expect(res3.status).toBe(409);
 
-    // Verify KV keys use completion:maintenance:YYYY-MM:<occurrenceId>:<employeeKey>
+    // Verify monthly index entries use completion:maintenance:YYYY-MM:<occurrenceId>:<employeeKey>
+    const monthRaw = kv.store.get("completions:month:2026-11");
+    expect(monthRaw).toBeTruthy();
+    const monthMap = JSON.parse(monthRaw!) as Record<string, unknown>;
     expect(
-      kv.store.has(
-        "completion:maintenance:2026-11:maint:m1:2026-11-02:MORNING:toma%20mihai"
-      )
+      "completion:maintenance:2026-11:maint:m1:2026-11-02:MORNING:toma%20mihai" in
+        monthMap
     ).toBe(true);
     expect(
-      kv.store.has(
-        "completion:maintenance:2026-11:maint:m1:2026-11-02:MORNING:olteanu%20ionut-lucian"
-      )
+      "completion:maintenance:2026-11:maint:m1:2026-11-02:MORNING:olteanu%20ionut-lucian" in
+        monthMap
     ).toBe(true);
   });
 

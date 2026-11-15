@@ -3,14 +3,12 @@ import {
   generateDowntimeExportBuffer,
 } from "../../../src/domain/history";
 import { getMonthsInRange } from "../../../src/shared/timezone";
-import type { MaintenanceTask, TaskCompletion } from "../../../src/shared/types";
+import type { MaintenanceTask } from "../../../src/shared/types";
 import { errorResponse, isValidIsoDate } from "../_lib/http";
 import {
-  completionDailyPrefix,
-  completionMaintenancePrefix,
   type Env,
+  getMonthCompletions,
   KV_KEYS,
-  listAllValues,
 } from "../_lib/kv";
 
 const XLSX_CONTENT_TYPE =
@@ -52,19 +50,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   if (type === "daily") {
     const dailyBatches = await Promise.all(
-      months.map((m) =>
-        listAllValues<TaskCompletion>(kv, completionDailyPrefix(m))
-      )
+      months.map((m) => getMonthCompletions(kv, m, "DAILY"))
     );
     buffer = await generateDailyExportBuffer(dailyBatches.flat(), from, to);
     filename = `Daily_Tasks_${from}_to_${to}.xlsx`;
   } else {
     const [maintenanceBatches, maintenanceTasks] = await Promise.all([
-      Promise.all(
-        months.map((m) =>
-          listAllValues<TaskCompletion>(kv, completionMaintenancePrefix(m))
-        )
-      ),
+      Promise.all(months.map((m) => getMonthCompletions(kv, m, "MAINTENANCE"))),
       kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json"),
     ]);
     buffer = await generateDowntimeExportBuffer(

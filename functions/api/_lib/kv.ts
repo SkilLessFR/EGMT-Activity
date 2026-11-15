@@ -1,4 +1,5 @@
 import type { KVNamespace } from "@cloudflare/workers-types";
+import type { TaskCompletion } from "../../../src/shared/types";
 
 export interface Env {
   EGMT_ACTIVIT: KVNamespace;
@@ -15,6 +16,10 @@ export function rosterKey(monthKey: string): string {
 
 export function normalizeEmployeeKey(employeeName: string): string {
   return encodeURIComponent(employeeName.trim().toLowerCase());
+}
+
+export function completionsMonthKey(monthKey: string): string {
+  return `completions:month:${monthKey}`;
 }
 
 export function dailyCompletionKey(
@@ -88,4 +93,56 @@ export async function listAllValues<T>(
     }
   }
   return result;
+}
+
+function completionEntryKey(monthKey: string, c: TaskCompletion): string {
+  return c.taskType === "DAILY"
+    ? dailyCompletionKey(monthKey, c.occurrenceId)
+    : maintenanceCompletionKey(monthKey, c.occurrenceId, c.completedBy);
+}
+
+/**
+ * Loads the monthly completions map from a single KV key (`completions:month:YYYY-MM`)
+ * using `kv.get()` (100k/day free tier) instead of `kv.list()` (1k/day free tier).
+ * On first access for a month that has no monthly key yet, migrates any legacy
+ * per-completion keys once and persists the monthly map.
+ */
+export async function getMonthCompletionsMap(
+  kv: KVNamespace,
+  monthKey: string
+): Promise<Record<string, TaskCompletion>> {
+  const monthKvKey = completionsMonthKey(monthKey);
+  const existing = await kv.get<Record<string, TaskCompletion>>(monthKvKey, "json");
+  if (existing !== null) {
+    return existing;
+  }
+
+  const [daily, maintenance] = await Promise.all([
+    listAllValues<TaskCompletion>(kv, completionDailyPrefix(monthKey)),
+    listAllValues<TaskCompletion>(kv, completionMaintenancePrefix(monthKey)),
+  ]);
+
+  const migrated: Record<string, TaskCompletion> = {};
+  for (const c of [...daily, ...maintenance]) {
+    migrated[completionEntryKey(monthKey, c)] = c;
+  }
+
+  if (typeof kv.put === "function") {
+    await kv.put(monthKvKey, JSON.stringify(migrated));
+  }
+  return migrated;
+}
+
+/**
+ * Returns all completions for a given YYYY-MM month, optionally filtered by taskType.
+ */
+export async function getMonthCompletions(
+  kv: KVNamespace,
+  monthKey: string,
+  taskType?: "DAILY" | "MAINTENANCE"
+): Promise<TaskCompletion[]> {
+  const map = await getMonthCompletionsMap(kv, monthKey);
+  const all = Object.values(map);
+  if (!taskType) return all;
+  return all.filter((c) => c.taskType === taskType);
 }
