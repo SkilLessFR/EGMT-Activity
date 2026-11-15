@@ -3,14 +3,80 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: light dark;
+    --bg-canvas: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-surface-elevated: #f8fafc;
+    --bg-surface-card: #ffffff;
+    --bg-surface-input: #ffffff;
+    --shadow-modal: 0 24px 64px -16px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.08);
+    --accent-color: #2563eb;
+    --btn-primary-bg: #2563eb;
+    --btn-primary-hover: #1d4ed8;
+    --btn-primary-text: #ffffff;
+    --nav-active-bg: #eff6ff;
+    --nav-active-text: #1d4ed8;
+    --nav-active-bar: #2563eb;
+    --color-scrollbar-track: #f1f5f9;
+    --color-scrollbar-thumb: #94a3b8;
+
+    @media (prefers-color-scheme: dark) {
+      --bg-canvas: #09090b;
+      --bg-surface: #0e0e11;
+      --bg-surface-elevated: #141418;
+      --bg-surface-card: #0e0e11;
+      --bg-surface-input: #0b0b0e;
+      --shadow-modal: 0 24px 64px -16px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07);
+      --accent-color: #60a5fa;
+      --btn-primary-bg: #f4f4f5;
+      --btn-primary-hover: #ffffff;
+      --btn-primary-text: #09090b;
+      --nav-active-bg: rgba(255, 255, 255, 0.07);
+      --nav-active-text: #f4f4f5;
+      --nav-active-bar: #f4f4f5;
+      --color-scrollbar-track: transparent;
+      --color-scrollbar-thumb: #27272a;
+    }
+
+    @supports (color: light-dark(white, black)) {
+      --bg-canvas: light-dark(#ffffff, #09090b);
+      --bg-surface: light-dark(#ffffff, #0e0e11);
+      --bg-surface-elevated: light-dark(#f8fafc, #141418);
+      --bg-surface-card: light-dark(#ffffff, #0e0e11);
+      --bg-surface-input: light-dark(#ffffff, #0b0b0e);
+      --accent-color: light-dark(#2563eb, #60a5fa);
+      --btn-primary-bg: light-dark(#2563eb, #f4f4f5);
+      --btn-primary-hover: light-dark(#1d4ed8, #ffffff);
+      --btn-primary-text: light-dark(#ffffff, #09090b);
+      --nav-active-bg: light-dark(#eff6ff, rgba(255, 255, 255, 0.07));
+      --nav-active-text: light-dark(#1d4ed8, #f4f4f5);
+      --nav-active-bar: light-dark(#2563eb, #f4f4f5);
+      --color-scrollbar-track: light-dark(#f1f5f9, transparent);
+      --color-scrollbar-thumb: light-dark(#94a3b8, #27272a);
+    }
+
+    &:has(> head > meta[name="color-scheme"][content="dark"]) {
+      color-scheme: dark;
+      --shadow-modal: 0 24px 64px -16px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+
+    &:has(> head > meta[name="color-scheme"][content="light"]) {
+      color-scheme: light;
+      --shadow-modal: 0 24px 64px -16px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.08);
+    }
+
+    accent-color: var(--accent-color);
+    scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+  }
+
   html {
-    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    background-color: #09090b;
-    color: #f4f4f5;
+    background-color: var(--bg-canvas);
+    color: light-dark(#0f172a, #f4f4f5);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-feature-settings: "cv11", "ss01", "tnum";
     -webkit-font-smoothing: antialiased;
@@ -18,13 +84,150 @@
   }
 
   ::selection {
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
+    background: light-dark(rgba(37, 99, 235, 0.18), rgba(255, 255, 255, 0.18));
+    color: light-dark(#0f172a, #fff);
   }
 
   :focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline: 2px solid light-dark(rgba(37, 99, 235, 0.55), rgba(255, 255, 255, 0.35));
     outline-offset: 2px;
+  }
+}
+
+/* Theme toggle button labels: driven by <meta name="color-scheme"> + system preference */
+.theme-label-to-light {
+  display: none;
+}
+.theme-label-to-dark {
+  display: inline-flex;
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-label-to-light {
+  display: inline-flex;
+}
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-label-to-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .theme-label-to-light {
+    display: inline-flex;
+  }
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) .theme-label-to-dark {
+    display: none;
+  }
+}
+
+/* Theme-aware primary button & navigation accents */
+.btn-primary-theme {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+.btn-primary-theme:hover:not(:disabled) {
+  background-color: var(--btn-primary-hover);
+}
+.nav-active-theme {
+  background-color: var(--nav-active-bg);
+  color: var(--nav-active-text);
+}
+.nav-bar-theme {
+  background-color: var(--nav-active-bar);
+}
+
+/* Adapt existing dark-first utility classes cleanly to light mode (white + blue accents) */
+@layer utilities {
+  .text-zinc-100 {
+    color: light-dark(#0f172a, #f4f4f5);
+  }
+  .text-zinc-200 {
+    color: light-dark(#1e293b, #e4e4e7);
+  }
+  .text-zinc-300 {
+    color: light-dark(#334155, #d4d4d8);
+  }
+  .text-zinc-400 {
+    color: light-dark(#475569, #a1a1aa);
+  }
+  .text-zinc-500 {
+    color: light-dark(#64748b, #71717a);
+  }
+  .text-zinc-600 {
+    color: light-dark(#94a3b8, #52525b);
+  }
+  .placeholder\:text-zinc-600::placeholder {
+    color: light-dark(#94a3b8, #52525b);
+  }
+  .border-white\/\[0\.06\] {
+    border-color: light-dark(rgba(15, 23, 42, 0.09), rgba(255, 255, 255, 0.06));
+  }
+  .border-white\/\[0\.08\] {
+    border-color: light-dark(rgba(15, 23, 42, 0.14), rgba(255, 255, 255, 0.08));
+  }
+  .hover\:border-white\/\[0\.14\]:hover {
+    border-color: light-dark(rgba(37, 99, 235, 0.35), rgba(255, 255, 255, 0.14));
+  }
+  .focus\:border-white\/25:focus {
+    border-color: light-dark(#2563eb, rgba(255, 255, 255, 0.25));
+  }
+  .focus\:ring-white\/\[0\.05\]:focus {
+    --tw-ring-color: light-dark(rgba(37, 99, 235, 0.16), rgba(255, 255, 255, 0.05));
+  }
+  .bg-white\/\[0\.03\] {
+    background-color: light-dark(#f8fafc, rgba(255, 255, 255, 0.03));
+  }
+  .bg-white\/\[0\.04\] {
+    background-color: light-dark(#f1f5f9, rgba(255, 255, 255, 0.04));
+  }
+  .bg-white\/\[0\.05\] {
+    background-color: light-dark(#eff6ff, rgba(255, 255, 255, 0.05));
+  }
+  .hover\:bg-white\/\[0\.06\]:hover {
+    background-color: light-dark(rgba(37, 99, 235, 0.08), rgba(255, 255, 255, 0.06));
+  }
+  .bg-white\/\[0\.07\] {
+    background-color: light-dark(#eff6ff, rgba(255, 255, 255, 0.07));
+  }
+  .hover\:bg-white\/\[0\.07\]:hover {
+    background-color: light-dark(#eff6ff, rgba(255, 255, 255, 0.07));
+  }
+  .hover\:text-zinc-100:hover {
+    color: light-dark(#0f172a, #f4f4f5);
+  }
+  .hover\:text-zinc-200:hover {
+    color: light-dark(#1d4ed8, #e4e4e7);
+  }
+  .hover\:text-zinc-300:hover {
+    color: light-dark(#1d4ed8, #d4d4d8);
+  }
+  .bg-black\/70 {
+    background-color: light-dark(rgba(15, 23, 42, 0.35), rgba(0, 0, 0, 0.7));
+  }
+  .text-red-300 {
+    color: light-dark(#dc2626, #fca5a5);
+  }
+  .text-red-400 {
+    color: light-dark(#dc2626, #f87171);
+  }
+  .text-amber-300 {
+    color: light-dark(#b45309, #fcd34d);
+  }
+  .text-amber-400 {
+    color: light-dark(#d97706, #fbbf24);
+  }
+  .text-emerald-300 {
+    color: light-dark(#047857, #6ee7b7);
+  }
+  .text-emerald-400 {
+    color: light-dark(#059669, #34d399);
+  }
+  .text-sky-300 {
+    color: light-dark(#0369a1, #7dd3fc);
+  }
+  .text-indigo-300 {
+    color: light-dark(#1d4ed8, #a5b4fc);
+  }
+  .bg-indigo-500\/10 {
+    background-color: light-dark(rgba(37, 99, 235, 0.1), rgba(99, 102, 241, 0.1));
   }
 }
 
@@ -81,21 +284,19 @@
   }
 }
 
-/* Quiet scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* Legacy scrollbar fallback for browsers without scrollbar-color */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+  ::-webkit-scrollbar-track {
+    background: var(--color-scrollbar-track);
+  }
 
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar-thumb);
+    border-radius: 9999px;
+  }
 }

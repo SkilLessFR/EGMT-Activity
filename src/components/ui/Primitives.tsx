@@ -16,8 +16,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  // Primary is high-contrast white: the one loud element on a quiet screen.
-  primary: "bg-zinc-100 text-zinc-950 font-semibold hover:bg-white active:scale-[0.98]",
+  // Primary is high-contrast: blue with white text in light mode, white with dark text in dark mode.
+  primary: "btn-primary-theme font-semibold active:scale-[0.98]",
   secondary:
     "border border-white/[0.08] bg-white/[0.03] text-zinc-200 font-medium hover:bg-white/[0.07] hover:border-white/[0.14]",
   ghost: "text-zinc-400 font-medium hover:bg-white/[0.06] hover:text-zinc-100",

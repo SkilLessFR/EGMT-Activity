@@ -8,12 +8,12 @@ export default {
       colors: {
         // Neutral (zinc) replaces the blue-tinted slate everywhere `slate-*` is used.
         slate: colors.zinc,
-        canvas: "#09090B",
+        canvas: "var(--bg-canvas)",
         surface: {
-          DEFAULT: "#0E0E11",
-          elevated: "#141418",
-          card: "#0E0E11",
-          input: "#0B0B0E",
+          DEFAULT: "var(--bg-surface)",
+          elevated: "var(--bg-surface-elevated)",
+          card: "var(--bg-surface-card)",
+          input: "var(--bg-surface-input)",
         },
       },
       fontFamily: {
@@ -39,7 +39,7 @@ export default {
       boxShadow: {
         // Flat by default: structure comes from hairlines, not shadows.
         card: "none",
-        modal: "0 24px 64px -16px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.07)",
+        modal: "var(--shadow-modal)",
       },
     },
   },

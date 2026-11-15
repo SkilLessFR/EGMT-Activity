@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { ClipboardCheck, History, Users, Wrench } from "lucide-react";
+import { ClipboardCheck, History, Moon, Sun, Users, Wrench } from "lucide-react";
+import {
+  applyColorSchemeMeta,
+  getStoredColorScheme,
+  toggleColorScheme,
+} from "../utils/theme";
 import { getBucharestNowParts } from "../shared/timezone";
 import type { RosterData, Shift } from "../shared/types";
 
@@ -53,6 +58,30 @@ export function Header({
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    applyColorSchemeMeta(getStoredColorScheme());
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "color-scheme") {
+        applyColorSchemeMeta(getStoredColorScheme());
+      }
+    };
+    const mql =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : null;
+    const handleMedia = () => {
+      applyColorSchemeMeta(getStoredColorScheme());
+    };
+
+    window.addEventListener("storage", handleStorage);
+    mql?.addEventListener("change", handleMedia);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      mql?.removeEventListener("change", handleMedia);
+    };
+  }, []);
+
   const { primary, midActive } = getActiveShiftsAtTime(nowParts.hours);
 
   return (
@@ -62,7 +91,7 @@ export function Header({
           {/* Left: wordmark + desktop navigation */}
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-[3px] bg-zinc-100" aria-hidden="true" />
+              <span className="nav-bar-theme h-2 w-2 rounded-[3px]" aria-hidden="true" />
               <span className="text-sm font-semibold tracking-tight text-zinc-100">EGMT</span>
               <span className="hidden text-sm text-zinc-500 sm:inline">Activity</span>
             </div>
@@ -78,7 +107,7 @@ export function Header({
                     aria-current={isActive ? "page" : undefined}
                     className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition ${
                       isActive
-                        ? "bg-white/[0.07] text-zinc-100"
+                        ? "nav-active-theme"
                         : "text-zinc-500 hover:text-zinc-200"
                     }`}
                   >
@@ -125,6 +154,21 @@ export function Header({
                 {roster ? `${roster.employees.length} Staff` : "Load Roster"}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => toggleColorScheme()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition hover:border-white/[0.14] hover:bg-white/[0.07]"
+            >
+              <span className="theme-label-to-light items-center gap-1.5">
+                <Sun className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Light mode</span>
+              </span>
+              <span className="theme-label-to-dark items-center gap-1.5">
+                <Moon className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Dark mode</span>
+              </span>
+            </button>
           </div>
         </div>
       </header>
@@ -150,7 +194,7 @@ export function Header({
               >
                 {isActive && (
                   <span
-                    className="absolute -top-1.5 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-zinc-100"
+                    className="nav-bar-theme absolute -top-1.5 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full"
                     aria-hidden="true"
                   />
                 )}

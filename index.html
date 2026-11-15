@@ -1,8 +1,16 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      try {
+        var s = localStorage.getItem("color-scheme");
+        var m = document.querySelector('meta[name="color-scheme"]');
+        if (m) m.content = s === "light" || s === "dark" ? s : "light dark";
+      } catch (e) {}
+    </script>
     <title>EGMT Activity — Maintenance Operations</title>
     <meta name="description" content="Industrial maintenance daily tasks, downtime checklists, and compliance history." />
     <meta name="theme-color" content="#09090b" />
@@ -21,7 +29,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   </head>
-  <body class="bg-[#09090b] text-zinc-100 antialiased">
+  <body class="bg-canvas text-zinc-100 antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
