@@ -2,27 +2,32 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Calendar,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Edit2,
   Loader2,
+  MessageSquare,
   Plus,
   Settings2,
   Trash2,
   X,
 } from "lucide-react";
 import {
+  createComment,
   createCompletion,
   createDailyTask,
   deleteDailyTask,
+  fetchComments,
   fetchCompletions,
   fetchDailyTasks,
   fetchRoster,
   getErrorMessage,
   updateDailyTask,
 } from "../api/client";
+import { compressImageToDataUrl } from "../utils/image";
 import {
   filterOccurrencesForCurrentShift,
   generateDailyOccurrences,
@@ -41,6 +46,7 @@ import type {
   DailyTask,
   RosterData,
   TargetShift,
+  TaskComment,
   TaskCompletion,
   TaskSchedule,
 } from "../shared/types";
@@ -586,6 +592,259 @@ function TaskFormModal({
   );
 }
 
+interface TaskCommentsModalProps {
+  occurrence: DailyOccurrence | null;
+  comments: TaskComment[];
+  onClose: () => void;
+  onCommentAdded: (comment: TaskComment) => void;
+}
+
+function TaskCommentsModal({
+  occurrence,
+  comments,
+  onClose,
+  onCommentAdded,
+}: TaskCommentsModalProps) {
+  const { showToast } = useToast();
+  const [author, setAuthor] = useState("");
+  const [message, setMessage] = useState("");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [compressing, setCompressing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!occurrence) return;
+    setError(null);
+    setMessage("");
+    setPhotoDataUrl(null);
+    setPreviewPhoto(null);
+    setAuthor((prev) =>
+      occurrence.eligibleEmployees.length > 0
+        ? occurrence.eligibleEmployees.includes(prev)
+          ? prev
+          : occurrence.eligibleEmployees[0]
+        : prev
+    );
+  }, [occurrence]);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    setCompressing(true);
+    try {
+      const compressed = await compressImageToDataUrl(file);
+      setPhotoDataUrl(compressed);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!occurrence) return;
+    setError(null);
+
+    if (!author.trim()) {
+      setError("Please enter or select your name.");
+      return;
+    }
+    if (!message.trim() && !photoDataUrl) {
+      setError("Write a message or attach a photo.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const created = await createComment({
+        occurrenceId: occurrence.occurrenceId,
+        taskId: occurrence.taskId,
+        taskTitle: occurrence.taskTitle,
+        scheduledDate: occurrence.scheduledDate,
+        author: author.trim(),
+        message: message.trim(),
+        ...(photoDataUrl ? { photoDataUrl } : {}),
+      });
+      onCommentAdded(created);
+      setMessage("");
+      setPhotoDataUrl(null);
+      showToast({ tone: "success", title: "Comment added" });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal
+        isOpen={occurrence !== null}
+        onClose={onClose}
+        title={occurrence ? `Comments · ${occurrence.taskTitle}` : "Comments"}
+        subtitle={
+          occurrence
+            ? `${occurrence.scheduledDate} · ${occurrence.scheduledTime}`
+            : undefined
+        }
+        icon={<MessageSquare className="h-4 w-4" />}
+        maxWidthClass="max-w-lg"
+      >
+        <div className="space-y-4">
+          {comments.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-white/[0.08] py-6 text-center text-xs text-zinc-500">
+              No comments yet. Leave a note or attach a photo below.
+            </p>
+          ) : (
+            <div className="max-h-72 space-y-2.5 overflow-y-auto pr-1">
+              {comments.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-zinc-100">{c.author}</span>
+                    <span className="font-mono tabular-nums text-zinc-500">
+                      {formatBucharestDateTime(c.createdAt)}
+                    </span>
+                  </div>
+                  {c.message && (
+                    <p className="mt-1.5 whitespace-pre-wrap text-sm text-zinc-200">
+                      {c.message}
+                    </p>
+                  )}
+                  {c.photoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPhoto(c.photoDataUrl ?? null)}
+                      className="mt-2 block overflow-hidden rounded-lg border border-white/[0.08]"
+                    >
+                      <img
+                        src={c.photoDataUrl}
+                        alt={`Attachment from ${c.author}`}
+                        className="max-h-48 w-auto object-contain"
+                      />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3 border-t border-white/[0.06] pt-3">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Technician
+              </label>
+              {occurrence && occurrence.eligibleEmployees.length > 0 ? (
+                <select
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  className={selectClassName}
+                >
+                  {occurrence.eligibleEmployees.map((emp) => (
+                    <option key={emp} value={emp}>
+                      {emp}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  placeholder="Your name"
+                  className={inputClassName}
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Message
+              </label>
+              <textarea
+                rows={2}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Add notes, observations, or issue details..."
+                className={inputClassName}
+              />
+            </div>
+
+            {photoDataUrl && (
+              <div className="relative inline-block overflow-hidden rounded-lg border border-white/[0.08]">
+                <img
+                  src={photoDataUrl}
+                  alt="Selected attachment preview"
+                  className="max-h-32 w-auto object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPhotoDataUrl(null)}
+                  className="absolute right-1.5 top-1.5 rounded-full bg-black/70 p-1 text-white"
+                  aria-label="Remove attached photo"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-white/[0.14] hover:bg-white/[0.07]">
+                <Camera className="h-3.5 w-3.5" />
+                <span>{compressing ? "Preparing photo..." : "Attach photo"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => void handlePhotoChange(e)}
+                  disabled={compressing || submitting}
+                  className="sr-only"
+                />
+              </label>
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={submitting || compressing}
+              >
+                {submitting ? "Posting..." : "Post Comment"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={previewPhoto !== null}
+        onClose={() => setPreviewPhoto(null)}
+        title="Photo Attachment"
+        maxWidthClass="max-w-3xl"
+      >
+        {previewPhoto && (
+          <img
+            src={previewPhoto}
+            alt="Full-size attachment"
+            className="mx-auto max-h-[75vh] w-auto rounded-lg object-contain"
+          />
+        )}
+      </Modal>
+    </>
+  );
+}
+
 export function DailyTasksView({
   rosterCache,
   onRosterLoaded,
@@ -597,9 +856,11 @@ export function DailyTasksView({
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
+  const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submittingKey, setSubmittingKey] = useState<string | null>(null);
+  const [commentTarget, setCommentTarget] = useState<DailyOccurrence | null>(null);
 
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [manageShiftFilter, setManageShiftFilter] = useState<"ALL" | TargetShift>("ALL");
@@ -633,16 +894,33 @@ export function DailyTasksView({
     setError(null);
     try {
       const needsPrevCompletions = shiftWindow.nightHalf === "second";
-      const [tasksRes, completionsRes, prevCompletionsRes] = await Promise.all([
+      const [
+        tasksRes,
+        completionsRes,
+        prevCompletionsRes,
+        commentsRes,
+        prevCommentsRes,
+      ] = await Promise.all([
         fetchDailyTasks(),
         fetchCompletions({ date: selectedDate }),
         needsPrevCompletions ? fetchCompletions({ date: prevDate }) : Promise.resolve([]),
+        fetchComments({ date: selectedDate }),
+        needsPrevCompletions ? fetchComments({ date: prevDate }) : Promise.resolve([]),
       ]);
       setTasks(tasksRes);
       const mergedMap = new Map<string, TaskCompletion>();
       for (const c of completionsRes) mergedMap.set(c.id, c);
       for (const c of prevCompletionsRes) mergedMap.set(c.id, c);
       setCompletions(Array.from(mergedMap.values()));
+
+      const mergedComments = new Map<string, TaskComment>();
+      for (const c of commentsRes) mergedComments.set(c.id, c);
+      for (const c of prevCommentsRes) mergedComments.set(c.id, c);
+      setComments(
+        Array.from(mergedComments.values()).sort((a, b) =>
+          a.createdAt.localeCompare(b.createdAt)
+        )
+      );
 
       if (!(currentMonthKey in rosterCache)) {
         const r = await fetchRoster(currentMonthKey);
@@ -751,6 +1029,19 @@ export function DailyTasksView({
     [tasks, manageShiftFilter]
   );
 
+  const commentsByOccurrence = useMemo(() => {
+    const map = new Map<string, TaskComment[]>();
+    for (const c of comments) {
+      const list = map.get(c.occurrenceId);
+      if (list) {
+        list.push(c);
+      } else {
+        map.set(c.occurrenceId, [c]);
+      }
+    }
+    return map;
+  }, [comments]);
+
   const handleComplete = async (occ: DailyOccurrence, employee: string) => {
     const key = `${occ.occurrenceId}:${employee}`;
     const optimisticId = `optimistic:${key}:${Date.now()}`;
@@ -811,6 +1102,7 @@ export function DailyTasksView({
     const shiftShort =
       TARGET_SHIFT_OPTIONS.find((s) => s.value === occ.targetShift)?.short ??
       `Shift ${occ.targetShift}`;
+    const occComments = commentsByOccurrence.get(occ.occurrenceId) ?? [];
 
     return (
       <article
@@ -911,6 +1203,24 @@ export function DailyTasksView({
               )}
             </div>
           )}
+        </div>
+
+        {/* Right Comments Column */}
+        <div className="shrink-0 pt-0.5">
+          <button
+            type="button"
+            onClick={() => setCommentTarget(occ)}
+            aria-label={`Comments for ${occ.taskTitle}`}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-white/[0.14] hover:bg-white/[0.07]"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Comments</span>
+            {occComments.length > 0 && (
+              <span className="rounded-full bg-white/[0.07] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-zinc-200">
+                {occComments.length}
+              </span>
+            )}
+          </button>
         </div>
       </article>
     );
@@ -1238,6 +1548,15 @@ export function DailyTasksView({
         defaultDate={selectedDate}
         onClose={() => setFormModalOpen(false)}
         onSaved={() => void loadData()}
+      />
+
+      <TaskCommentsModal
+        occurrence={commentTarget}
+        comments={
+          commentTarget ? (commentsByOccurrence.get(commentTarget.occurrenceId) ?? []) : []
+        }
+        onClose={() => setCommentTarget(null)}
+        onCommentAdded={(created) => setComments((prev) => [...prev, created])}
       />
     </div>
   );

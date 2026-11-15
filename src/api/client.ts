@@ -1,6 +1,9 @@
 import type {
   ApiErrorResponse,
+  CommentsListResponse,
   CompletionsListResponse,
+  CreateCommentRequest,
+  CreateCommentResponse,
   CreateCompletionRequest,
   CreateCompletionResponse,
   CreateDailyTaskRequest,
@@ -17,6 +20,7 @@ import type {
   RosterData,
   RosterGetResponse,
   RosterUploadResponse,
+  TaskComment,
   TaskCompletion,
   TasksListResponse,
   UpdateDailyTaskRequest,
@@ -283,4 +287,21 @@ export async function downloadHistoryExport(params: {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+export async function fetchComments(params: { date?: string; month?: string }): Promise<TaskComment[]> {
+  const qs = new URLSearchParams();
+  if (params.date) qs.set("date", params.date);
+  if (params.month) qs.set("month", params.month);
+  const query = qs.toString();
+  const data = await requestJson<CommentsListResponse>(`/api/comments${query ? `?${query}` : ""}`);
+  return data.comments;
+}
+
+export async function createComment(payload: CreateCommentRequest): Promise<TaskComment> {
+  const data = await requestJson<CreateCommentResponse>("/api/comments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data.comment;
 }

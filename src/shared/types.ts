@@ -200,3 +200,33 @@ export interface DeleteResponse {
   deleted: true;
   id: string;
 }
+
+export interface TaskComment {
+  id: string;
+  occurrenceId: string;
+  taskId: string;
+  taskTitle: string;
+  scheduledDate: string; // YYYY-MM-DD
+  author: string;
+  message: string;
+  photoDataUrl?: string;
+  createdAt: string; // ISO timestamp
+}
+
+export interface CreateCommentRequest {
+  occurrenceId: string;
+  taskId: string;
+  taskTitle: string;
+  scheduledDate: string; // YYYY-MM-DD
+  author: string;
+  message: string;
+  photoDataUrl?: string;
+}
+
+export interface CommentsListResponse {
+  comments: TaskComment[];
+}
+
+export interface CreateCommentResponse {
+  comment: TaskComment;
+}

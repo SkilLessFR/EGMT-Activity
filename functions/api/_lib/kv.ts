@@ -1,5 +1,5 @@
 import type { KVNamespace } from "@cloudflare/workers-types";
-import type { TaskCompletion } from "../../../src/shared/types";
+import type { TaskComment, TaskCompletion } from "../../../src/shared/types";
 
 export interface Env {
   EGMT_ACTIVIT: KVNamespace;
@@ -20,6 +20,10 @@ export function normalizeEmployeeKey(employeeName: string): string {
 
 export function completionsMonthKey(monthKey: string): string {
   return `completions:month:${monthKey}`;
+}
+
+export function commentsMonthKey(monthKey: string): string {
+  return `comments:month:${monthKey}`;
 }
 
 export function dailyCompletionKey(
@@ -145,4 +149,15 @@ export async function getMonthCompletions(
   const all = Object.values(map);
   if (!taskType) return all;
   return all.filter((c) => c.taskType === taskType);
+}
+
+/**
+ * Loads all task comments for a YYYY-MM month from a single KV key (`comments:month:YYYY-MM`).
+ */
+export async function getMonthComments(
+  kv: KVNamespace,
+  monthKey: string
+): Promise<TaskComment[]> {
+  const existing = await kv.get<TaskComment[]>(commentsMonthKey(monthKey), "json");
+  return existing ?? [];
 }
