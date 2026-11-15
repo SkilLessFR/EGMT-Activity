@@ -146,3 +146,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const response: CreateCommentResponse = { comment };
   return jsonResponse(response, 201);
 };
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const url = new URL(context.request.url);
+  const monthParam = url.searchParams.get("month");
+  const idParam = url.searchParams.get("id");
+
+  const monthKey = monthParam ?? getBucharestDate().slice(0, 7);
+  if (!isValidMonthKey(monthKey)) {
+    return errorResponse("Invalid month parameter; expected YYYY-MM", 400);
+  }
+
+  const kv = context.env.EGMT_ACTIVIT;
+  if (idParam) {
+    const existing = await getMonthComments(kv, monthKey);
+    const next = existing.filter((c) => c.id !== idParam);
+    await kv.put(commentsMonthKey(monthKey), JSON.stringify(next));
+    return jsonResponse({ deleted: true, count: existing.length - next.length }, 200);
+  }
+
+  await kv.put(commentsMonthKey(monthKey), JSON.stringify([]));
+  return jsonResponse({ deleted: true, month: monthKey }, 200);
+};
