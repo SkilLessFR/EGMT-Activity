@@ -8,6 +8,7 @@ import {
   getCurrentShiftWindow,
   getEligibleEmployeesForDailyTask,
   groupDailyOccurrences,
+  isDailyTaskScheduledOnDate,
 } from "../src/domain/dailySchedule";
 import type {
   DailyTask,
@@ -626,6 +627,21 @@ describe("dailySchedule", () => {
       });
       expect(day1Filtered.map((o) => o.taskId)).toEqual(["t-n-window", "t-n-first"]);
       expect(day1Filtered.find((o) => o.taskId === "t-n-first")?.status).toBe("completed");
+    });
+
+    it("schedules interval tasks every N days from startDate", () => {
+      const task5Days = makeTask({
+        id: "t-5d",
+        title: "Every 5 Days",
+        schedule: { type: "interval", everyDays: 5, startDate: "2026-11-15" },
+      });
+
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-14")).toBe(false);
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-15")).toBe(true);
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-16")).toBe(false);
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-19")).toBe(false);
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-20")).toBe(true);
+      expect(isDailyTaskScheduledOnDate(task5Days, "2026-11-25")).toBe(true);
     });
   });
 });

@@ -188,6 +188,15 @@ export function isDailyTaskScheduledOnDate(
       const dayOfWeek = getBucharestDayOfWeek(dateStr);
       return task.schedule.daysOfWeek.includes(dayOfWeek);
     }
+    case "interval": {
+      if (task.schedule.everyDays < 1 || dateStr < task.schedule.startDate) {
+        return false;
+      }
+      const startMs = Date.parse(`${task.schedule.startDate}T00:00:00Z`);
+      const targetMs = Date.parse(`${dateStr}T00:00:00Z`);
+      const diffDays = Math.round((targetMs - startMs) / 86_400_000);
+      return diffDays >= 0 && diffDays % task.schedule.everyDays === 0;
+    }
   }
 }
 

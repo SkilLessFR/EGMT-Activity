@@ -98,9 +98,13 @@ function TaskFormModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [targetShift, setTargetShift] = useState<TargetShift>("M");
-  const [scheduleType, setScheduleType] = useState<"daily" | "weekly" | "once">("daily");
+  const [scheduleType, setScheduleType] = useState<"daily" | "weekly" | "interval" | "once">(
+    "daily"
+  );
   const [onceDate, setOnceDate] = useState(defaultDate);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [intervalDays, setIntervalDays] = useState<number>(5);
+  const [intervalStartDate, setIntervalStartDate] = useState<string>(defaultDate);
   const [times, setTimes] = useState<string[]>(["08:00"]);
   const [timeMode, setTimeMode] = useState<"specific" | "shiftWindow">("specific");
   const [dueUntil, setDueUntil] = useState("10:00");
@@ -127,6 +131,14 @@ function TaskFormModal({
           ? [...editingTask.schedule.daysOfWeek]
           : [1, 2, 3, 4, 5]
       );
+      setIntervalDays(
+        editingTask.schedule.type === "interval" ? editingTask.schedule.everyDays : 5
+      );
+      setIntervalStartDate(
+        editingTask.schedule.type === "interval"
+          ? editingTask.schedule.startDate
+          : defaultDate
+      );
       setTimes(editingTask.times.length > 0 ? [...editingTask.times] : ["08:00"]);
       setTimeMode(editingTask.dueUntil ? "shiftWindow" : "specific");
       setDueUntil(editingTask.dueUntil ?? "10:00");
@@ -138,6 +150,8 @@ function TaskFormModal({
       setScheduleType("daily");
       setOnceDate(defaultDate);
       setDaysOfWeek([1, 2, 3, 4, 5]);
+      setIntervalDays(5);
+      setIntervalStartDate(defaultDate);
       setTimes(["08:00"]);
       setTimeMode("specific");
       setDueUntil("10:00");
@@ -182,6 +196,16 @@ function TaskFormModal({
       setError("Valid date (YYYY-MM-DD) is required for one-time schedule.");
       return;
     }
+    if (scheduleType === "interval") {
+      if (!Number.isInteger(intervalDays) || intervalDays < 1 || intervalDays > 365) {
+        setError("Repeat interval must be between 1 and 365 days.");
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(intervalStartDate)) {
+        setError("Valid start date (YYYY-MM-DD) is required.");
+        return;
+      }
+    }
     const shiftStart = getShiftStartTime(targetShift);
     const cleanedTimes =
       timeMode === "shiftWindow"
@@ -202,6 +226,12 @@ function TaskFormModal({
       schedule = { type: "daily" };
     } else if (scheduleType === "weekly") {
       schedule = { type: "weekly", daysOfWeek };
+    } else if (scheduleType === "interval") {
+      schedule = {
+        type: "interval",
+        everyDays: intervalDays,
+        startDate: intervalStartDate,
+      };
     } else {
       schedule = { type: "once", date: onceDate };
     }
@@ -321,19 +351,26 @@ function TaskFormModal({
             <label className="mb-1.5 block text-xs font-medium text-zinc-300">
               Recurrence
             </label>
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-white/[0.04] p-1">
-              {(["daily", "weekly", "once"] as const).map((type) => (
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/[0.04] p-1 sm:grid-cols-4">
+              {(
+                [
+                  { value: "daily", label: "Daily" },
+                  { value: "weekly", label: "Weekly" },
+                  { value: "interval", label: "Every N days" },
+                  { value: "once", label: "Once" },
+                ] as const
+              ).map((opt) => (
                 <button
-                  key={type}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setScheduleType(type)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition ${
-                    scheduleType === type
-                      ? "bg-zinc-100 font-semibold text-zinc-950"
+                  onClick={() => setScheduleType(opt.value)}
+                  className={`rounded-lg px-2.5 py-2 text-xs font-medium transition ${
+                    scheduleType === opt.value
+                      ? "btn-primary-theme font-semibold"
                       : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  {type}
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -357,6 +394,37 @@ function TaskFormModal({
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {scheduleType === "interval" && (
+              <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-400">
+                    Repeat every (days)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={intervalDays}
+                    onChange={(e) =>
+                      setIntervalDays(Math.max(1, Number.parseInt(e.target.value || "1", 10)))
+                    }
+                    className={inputClassName}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-400">
+                    Starting from
+                  </label>
+                  <input
+                    type="date"
+                    value={intervalStartDate}
+                    onChange={(e) => setIntervalStartDate(e.target.value)}
+                    className={inputClassName}
+                  />
+                </div>
               </div>
             )}
 
@@ -1047,7 +1115,11 @@ export function DailyTasksView({
                       {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
                     </div>
                     <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
-                      Shift {task.targetShift} · {task.schedule.type} ·{" "}
+                      Shift {task.targetShift} ·{" "}
+                      {task.schedule.type === "interval"
+                        ? `every ${task.schedule.everyDays}d from ${task.schedule.startDate}`
+                        : task.schedule.type}{" "}
+                      ·{" "}
                       {task.dueUntil
                         ? `${task.times[0]} → ${task.dueUntil}`
                         : task.times.join(", ")}

@@ -55,8 +55,24 @@ export function validateSchedule(
     validDays.sort((a, b) => a - b);
     return { type: "weekly", daysOfWeek: validDays };
   }
+  if (s.type === "interval") {
+    if (
+      typeof s.everyDays !== "number" ||
+      !Number.isInteger(s.everyDays) ||
+      s.everyDays < 1 ||
+      s.everyDays > 365
+    ) {
+      errors.push("schedule.everyDays must be an integer between 1 and 365");
+      return null;
+    }
+    if (!isValidIsoDate(s.startDate)) {
+      errors.push("schedule.startDate must be a valid YYYY-MM-DD date");
+      return null;
+    }
+    return { type: "interval", everyDays: s.everyDays, startDate: s.startDate };
+  }
 
-  errors.push("schedule.type must be 'once', 'daily', or 'weekly'");
+  errors.push("schedule.type must be 'once', 'daily', 'weekly', or 'interval'");
   return null;
 }
 

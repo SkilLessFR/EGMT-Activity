@@ -5,7 +5,8 @@ export type RosterShift = Shift | "OFF";
 export type TaskSchedule =
   | { type: "once"; date: string } // YYYY-MM-DD
   | { type: "daily" }
-  | { type: "weekly"; daysOfWeek: number[] }; // 0 = Sun .. 6 = Sat
+  | { type: "weekly"; daysOfWeek: number[] } // 0 = Sun .. 6 = Sat
+  | { type: "interval"; everyDays: number; startDate: string }; // every N days from YYYY-MM-DD
 
 export interface DailyTask {
   id: string;
