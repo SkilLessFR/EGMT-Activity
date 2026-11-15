@@ -91,7 +91,13 @@ export function Header({
           {/* Left: wordmark + desktop navigation */}
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <span className="nav-bar-theme h-2 w-2 rounded-[3px]" aria-hidden="true" />
+              <img
+                src="/icons/favicon-64.png"
+                alt=""
+                width={24}
+                height={24}
+                className="h-6 w-6 rounded-md object-cover"
+              />
               <span className="text-sm font-semibold tracking-tight text-zinc-100">EGMT</span>
               <span className="hidden text-sm text-zinc-500 sm:inline">Activity</span>
             </div>
