@@ -17,7 +17,11 @@ import {
   updateScheduledItem,
 } from "../api/client";
 import { computeScheduledMaintenanceStatus } from "../domain/scheduledMaintenance";
-import { formatBucharestDateTime, getBucharestDate } from "../shared/timezone";
+import {
+  formatBucharestDateTime,
+  formatDisplayDate,
+  getBucharestDate,
+} from "../shared/timezone";
 import type {
   RosterData,
   ScheduledMaintenanceItem,
@@ -468,7 +472,7 @@ export function ScheduledMaintenanceView({
                       <div className="mb-1 flex items-center justify-between text-xs">
                         <span className="font-mono tabular-nums text-zinc-400">
                           {nextDueAt
-                            ? `Next: ${getBucharestDate(new Date(nextDueAt))}`
+                            ? `Next: ${formatDisplayDate(getBucharestDate(new Date(nextDueAt)))}`
                             : "Awaiting first log"}
                         </span>
                         <span

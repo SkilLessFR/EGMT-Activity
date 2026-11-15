@@ -266,10 +266,10 @@ describe("Excel (.xlsx) export generation", () => {
     // 2 daily completions in Nov 1..5 (Oct 31 excluded)
     expect(ws!.rowCount).toBe(3);
     expect(ws!.getRow(2).getCell(1).value).toBe("Check Boiler Pressure");
-    expect(ws!.getRow(2).getCell(2).value).toBe("2026-11-01");
+    expect(ws!.getRow(2).getCell(2).value).toBe("01-11-2026");
     expect(ws!.getRow(2).getCell(3).value).toBe("08:00");
     expect(ws!.getRow(2).getCell(4).value).toBe("Alex Ionescu");
-    expect(ws!.getRow(2).getCell(5).value).toBe("2026-11-01 08:15");
+    expect(ws!.getRow(2).getCell(5).value).toBe("01-11-2026 08:15");
     expect(ws!.getRow(2).getCell(6).value).toBe("Completed");
   });
 
@@ -324,7 +324,7 @@ describe("Excel (.xlsx) export generation", () => {
       });
     }
 
-    const nov2 = rows.filter((r) => r.date === "2026-11-02");
+    const nov2 = rows.filter((r) => r.date === "02-11-2026");
     expect(nov2).toHaveLength(2);
     expect(nov2.map((r) => r.by).sort()).toEqual([
       "Alex Ionescu",

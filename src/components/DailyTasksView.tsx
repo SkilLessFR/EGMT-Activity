@@ -37,6 +37,7 @@ import {
 } from "../domain/dailySchedule";
 import {
   formatBucharestDateTime,
+  formatDisplayDate,
   getBucharestNowParts,
   getNextCalendarDate,
   getPreviousCalendarDate,
@@ -689,7 +690,7 @@ function TaskCommentsModal({
         title={occurrence ? `Comments · ${occurrence.taskTitle}` : "Comments"}
         subtitle={
           occurrence
-            ? `${occurrence.scheduledDate} · ${occurrence.scheduledTime}`
+            ? `${formatDisplayDate(occurrence.scheduledDate)} · ${occurrence.scheduledTime}`
             : undefined
         }
         icon={<MessageSquare className="h-4 w-4" />}

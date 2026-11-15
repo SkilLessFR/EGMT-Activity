@@ -13,7 +13,11 @@ import {
   fetchHistory,
   getErrorMessage,
 } from "../api/client";
-import { formatBucharestDateTime, getBucharestDate } from "../shared/timezone";
+import {
+  formatBucharestDateTime,
+  formatDisplayDate,
+  getBucharestDate,
+} from "../shared/timezone";
 import type { HistoryCategory, HistoryItem, RosterData } from "../shared/types";
 import {
   Button,
@@ -366,7 +370,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                   return (
                     <tr key={item.id} className="transition hover:bg-white/[0.02]">
                       <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs tabular-nums text-zinc-300">
-                        <div>{item.scheduledDate}</div>
+                        <div>{formatDisplayDate(item.scheduledDate)}</div>
                         <div className="text-zinc-500">
                           {item.taskType === "DAILY"
                             ? item.scheduledTime ?? "—"
@@ -412,7 +416,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="font-mono tabular-nums text-zinc-400">
-                        {item.scheduledDate}
+                        {formatDisplayDate(item.scheduledDate)}
                         {item.taskType === "DAILY" && item.scheduledTime
                           ? ` · ${item.scheduledTime}`
                           : item.window

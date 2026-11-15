@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import {
   formatBucharestDateTime,
+  formatDisplayDate,
   getBucharestDate,
   getMonthsInRange,
   parseMonthKey,
@@ -409,7 +410,7 @@ export async function generateDailyExportBuffer(
   for (const item of items) {
     worksheet.addRow({
       taskTitle: item.taskTitle,
-      scheduledDate: item.scheduledDate,
+      scheduledDate: formatDisplayDate(item.scheduledDate),
       scheduledTime: item.scheduledTime ?? "",
       completedBy: item.completedBy ?? "",
       completedAt: item.completedAt
@@ -471,7 +472,7 @@ export async function generateDowntimeExportBuffer(
     worksheet.addRow({
       taskTitle: item.taskTitle,
       window: item.window ?? "",
-      scheduledDate: item.scheduledDate,
+      scheduledDate: formatDisplayDate(item.scheduledDate),
       status: item.status,
       completedBy: item.completedBy ?? "",
       completedAt: item.completedAt

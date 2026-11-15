@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { formatTimeInterval24h } from "../shared/timezone";
 import type {
   DowntimeMonthSchedule,
   DowntimePhase,
@@ -263,7 +264,7 @@ export async function parseDowntimeWorkbook(
         ...(meta.endDate ? { endDate: meta.endDate } : {}),
         window: meta.window,
         studio: c3,
-        accessInterval: c4,
+        accessInterval: formatTimeInterval24h(c4),
         ...(parsePositiveInt(c5) !== undefined
           ? { idealTimeMin: parsePositiveInt(c5) }
           : {}),

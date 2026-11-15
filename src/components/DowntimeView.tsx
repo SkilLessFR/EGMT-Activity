@@ -37,7 +37,9 @@ import {
 } from "../domain/downtimeImporter";
 import {
   formatBucharestDateTime,
+  formatDisplayDate,
   formatMonthKey,
+  formatTimeInterval24h,
   getBucharestNowParts,
   parseMonthKey,
 } from "../shared/timezone";
@@ -87,12 +89,11 @@ function formatShortDate(isoDate: string): string {
   const [y, m, d] = isoDate.split("-").map(Number);
   if (!y || !m || !d) return isoDate;
   const dateObj = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat("en-US", {
+  const weekday = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
-    day: "2-digit",
-    month: "short",
     timeZone: "UTC",
   }).format(dateObj);
+  return `${weekday}, ${formatDisplayDate(isoDate)}`;
 }
 
 function buildDowntimeTaskTitle(task: DowntimeTask): string {
@@ -498,8 +499,10 @@ function DowntimeImportModal({
                         P{phase.phaseNumber}
                       </span>
                       <span className="font-mono text-zinc-400">
-                        {phase.scheduledDate}
-                        {phase.endDate ? ` → ${phase.endDate}` : ""}
+                        {formatDisplayDate(phase.scheduledDate)}
+                        {phase.endDate
+                          ? ` → ${formatDisplayDate(phase.endDate)}`
+                          : ""}
                       </span>
                       <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-zinc-300">
                         {phase.shiftLabel}
@@ -1095,7 +1098,9 @@ export function DowntimeView({
                                   {task.accessInterval && (
                                     <span className="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-400">
                                       <Clock className="h-3 w-3" />
-                                      {task.accessInterval}
+                                      {formatTimeInterval24h(
+                                        task.accessInterval
+                                      )}
                                     </span>
                                   )}
                                   {task.idealTimeMin !== undefined && (
@@ -1323,7 +1328,7 @@ export function DowntimeView({
         }
         subtitle={
           editingPhaseTeam
-            ? `${editingPhaseTeam.scheduledDate} · ${editingPhaseTeam.shiftLabel}`
+            ? `${formatDisplayDate(editingPhaseTeam.scheduledDate)} · ${editingPhaseTeam.shiftLabel}`
             : ""
         }
         initialPeople={editingPhaseTeam?.defaultTeam ?? []}

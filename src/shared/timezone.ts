@@ -129,7 +129,37 @@ export function parseMonthKey(
 }
 
 /**
- * Formats an ISO timestamp in Europe/Bucharest as "YYYY-MM-DD HH:MM".
+ * Formats a YYYY-MM-DD date string as DD-MM-YYYY for display.
+ */
+export function formatDisplayDate(isoDate: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
+  if (!match) return isoDate;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+/**
+ * Converts 12-hour AM/PM times inside a string (e.g. "09:00AM - 12:00PM")
+ * to 24-hour HH:MM format ("09:00 - 12:00").
+ */
+export function formatTimeInterval24h(raw: string): string {
+  if (!raw) return raw;
+  return raw.replace(
+    /\b(\d{1,2}):(\d{2})\s*(AM|PM)\b/gi,
+    (_match, hStr: string, mStr: string, ampm: string) => {
+      let hours = Number.parseInt(hStr, 10);
+      const upper = ampm.toUpperCase();
+      if (upper === "AM") {
+        if (hours === 12) hours = 0;
+      } else if (upper === "PM") {
+        if (hours !== 12) hours += 12;
+      }
+      return `${String(hours).padStart(2, "0")}:${mStr}`;
+    }
+  );
+}
+
+/**
+ * Formats an ISO timestamp in Europe/Bucharest as "DD-MM-YYYY HH:MM" (24-hour).
  */
 export function formatBucharestDateTime(isoTimestamp: string): string {
   const dt = new Date(isoTimestamp);
@@ -137,7 +167,7 @@ export function formatBucharestDateTime(isoTimestamp: string): string {
     return isoTimestamp;
   }
   const parts = getBucharestNowParts(dt);
-  return `${parts.date} ${parts.time}`;
+  return `${formatDisplayDate(parts.date)} ${parts.time}`;
 }
 
 /**

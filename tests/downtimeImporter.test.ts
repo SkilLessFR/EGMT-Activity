@@ -42,6 +42,11 @@ describe("downtimeImporter", () => {
     expect(mergedSkipPass.schedule.phases).toHaveLength(8);
     expect(mergedSkipPass.skippedPassCount).toBeGreaterThan(0);
     expect(mergedSkipPass.schedule.tasks.every((t) => !t.isPass)).toBe(true);
+    expect(
+      mergedSkipPass.schedule.tasks.every(
+        (t) => !/\b(AM|PM)\b/i.test(t.accessInterval)
+      )
+    ).toBe(true);
 
     // Check Phase 1 notice banner & team
     const phase1 = mergedSkipPass.schedule.phases.find(
