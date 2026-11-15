@@ -884,7 +884,7 @@ export function DowntimeView({
                 onClick={() => setPhaseFilter("ALL")}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                   phaseFilter === "ALL"
-                    ? "bg-zinc-100 font-semibold text-zinc-950"
+                    ? "btn-primary-theme font-semibold"
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
@@ -897,7 +897,7 @@ export function DowntimeView({
                   onClick={() => setPhaseFilter(p.phaseNumber)}
                   className={`rounded-md px-2.5 py-1 font-mono text-xs font-medium transition ${
                     phaseFilter === p.phaseNumber
-                      ? "bg-zinc-100 font-semibold text-zinc-950"
+                      ? "btn-primary-theme font-semibold"
                       : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
@@ -921,8 +921,8 @@ export function DowntimeView({
                   onClick={() => setWindowFilter(item.id)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
                     windowFilter === item.id
-                      ? "bg-zinc-100 font-semibold text-zinc-950"
-                      : "text-zinc-400 hover:text-zinc-200"
+                    ? "btn-primary-theme font-semibold"
+                    : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   {item.label}
@@ -935,7 +935,7 @@ export function DowntimeView({
               <select
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                className="h-8 rounded-lg border border-white/[0.08] bg-zinc-900 px-2.5 text-xs text-zinc-200 focus:border-white/[0.25] focus:outline-none"
+                className="h-8 rounded-lg border border-white/[0.08] bg-surface-input px-2.5 text-xs text-zinc-100 focus:border-white/[0.25] focus:outline-none"
                 aria-label="Filter by location"
               >
                 <option value="ALL">All Locations</option>
@@ -952,7 +952,7 @@ export function DowntimeView({
               <select
                 value={personFilter}
                 onChange={(e) => setPersonFilter(e.target.value)}
-                className="h-8 rounded-lg border border-white/[0.08] bg-zinc-900 px-2.5 text-xs text-zinc-200 focus:border-white/[0.25] focus:outline-none"
+                className="h-8 rounded-lg border border-white/[0.08] bg-surface-input px-2.5 text-xs text-zinc-100 focus:border-white/[0.25] focus:outline-none"
                 aria-label="Filter by person"
               >
                 <option value="ALL">All People</option>
@@ -998,7 +998,7 @@ export function DowntimeView({
                   {/* Phase Header */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-xs font-bold text-zinc-950">
+                      <span className="btn-primary-theme rounded-md px-2 py-0.5 font-mono text-xs font-bold">
                         PHASE {phase.phaseNumber}
                       </span>
                       <span className="text-sm font-semibold text-zinc-100">
@@ -1177,7 +1177,7 @@ export function DowntimeView({
                                       }
                                       className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
                                         isChecked
-                                          ? "border-zinc-100 bg-zinc-100 text-zinc-950"
+                                          ? "btn-primary-theme border-transparent"
                                           : "border-white/[0.1] bg-white/[0.03] text-zinc-300 hover:border-white/[0.25] hover:text-zinc-100"
                                       }`}
                                     >
