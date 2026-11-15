@@ -602,6 +602,7 @@ export function DailyTasksView({
   const [submittingKey, setSubmittingKey] = useState<string | null>(null);
 
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [manageShiftFilter, setManageShiftFilter] = useState<"ALL" | TargetShift>("ALL");
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
@@ -742,6 +743,13 @@ export function DailyTasksView({
 
   const grouped = useMemo(() => groupDailyOccurrences(occurrences), [occurrences]);
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
+  const filteredManageTasks = useMemo(
+    () =>
+      manageShiftFilter === "ALL"
+        ? tasks
+        : tasks.filter((t) => t.targetShift === manageShiftFilter),
+    [tasks, manageShiftFilter]
+  );
 
   const handleComplete = async (occ: DailyOccurrence, employee: string) => {
     const key = `${occ.occurrenceId}:${employee}`;
@@ -1133,44 +1141,80 @@ export function DailyTasksView({
               No daily tasks configured yet.
             </p>
           ) : (
-            <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-zinc-100">
-                        {task.title}
-                      </span>
-                      {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
-                    </div>
-                    <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
-                      Shift {task.targetShift} ·{" "}
-                      {task.schedule.type === "interval"
-                        ? `every ${task.schedule.everyDays}d from ${task.schedule.startDate}`
-                        : task.schedule.type}{" "}
-                      ·{" "}
-                      {task.dueUntil
-                        ? `${task.times[0]} → ${task.dueUntil}`
-                        : task.times.join(", ")}
-                    </div>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setManageModalOpen(false);
-                      setEditingTask(task);
-                      setFormModalOpen(true);
-                    }}
+            <>
+              <div className="flex flex-wrap gap-1 rounded-lg bg-white/[0.04] p-1">
+                {(
+                  [
+                    { value: "ALL", label: "All" },
+                    { value: "M", label: "Morning" },
+                    { value: "A", label: "After" },
+                    { value: "N", label: "Night" },
+                    { value: "ALL_ACTIVE", label: "All Active" },
+                    ...(tasks.some((t) => t.targetShift === "MID")
+                      ? [{ value: "MID" as const, label: "Midday" }]
+                      : []),
+                  ] as Array<{ value: "ALL" | TargetShift; label: string }>
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setManageShiftFilter(opt.value)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                      manageShiftFilter === opt.value
+                        ? "btn-primary-theme font-semibold"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
                   >
-                    <Edit2 className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredManageTasks.length === 0 ? (
+                <p className="py-6 text-center text-xs text-zinc-500">
+                  No tasks configured for this shift.
+                </p>
+              ) : (
+                <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+                  {filteredManageTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between gap-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-zinc-100">
+                            {task.title}
+                          </span>
+                          {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
+                        </div>
+                        <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
+                          Shift {task.targetShift} ·{" "}
+                          {task.schedule.type === "interval"
+                            ? `every ${task.schedule.everyDays}d from ${task.schedule.startDate}`
+                            : task.schedule.type}{" "}
+                          ·{" "}
+                          {task.dueUntil
+                            ? `${task.times[0]} → ${task.dueUntil}`
+                            : task.times.join(", ")}
+                        </div>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setManageModalOpen(false);
+                          setEditingTask(task);
+                          setFormModalOpen(true);
+                        }}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
           <div className="flex justify-end border-t border-white/[0.06] pt-3">
             <Button
