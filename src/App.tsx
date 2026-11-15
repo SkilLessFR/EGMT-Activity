@@ -5,6 +5,7 @@ import { DowntimeView } from "./components/DowntimeView";
 import { Header, type AppSection } from "./components/Header";
 import { HistoryView } from "./components/HistoryView";
 import { RosterModal } from "./components/RosterModal";
+import { ScheduledMaintenanceView } from "./components/ScheduledMaintenanceView";
 import { ToastProvider } from "./components/ui/Toast";
 import { getBucharestDate } from "./shared/timezone";
 import type { RosterData } from "./shared/types";
@@ -58,6 +59,12 @@ export default function App() {
             <DailyTasksView
               rosterCache={rosterCache}
               onRosterLoaded={handleRosterLoaded}
+              onOpenRosterModal={() => setRosterModalOpen(true)}
+            />
+          )}
+          {activeSection === "scheduled" && (
+            <ScheduledMaintenanceView
+              roster={currentRoster}
               onOpenRosterModal={() => setRosterModalOpen(true)}
             />
           )}

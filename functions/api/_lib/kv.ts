@@ -8,6 +8,8 @@ export interface Env {
 export const KV_KEYS = {
   dailyTasks: "config:daily-tasks",
   maintenanceTasks: "config:maintenance-tasks",
+  scheduledItems: "config:scheduled-maintenance-items",
+  scheduledLogs: "log:scheduled-maintenance-changes",
 } as const;
 
 export function rosterKey(monthKey: string): string {

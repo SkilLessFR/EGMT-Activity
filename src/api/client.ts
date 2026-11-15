@@ -8,6 +8,8 @@ import type {
   CreateCompletionResponse,
   CreateDailyTaskRequest,
   CreateMaintenanceTaskRequest,
+  CreateScheduledItemRequest,
+  CreateScheduledLogRequest,
   DailyTask,
   DailyTaskResponse,
   DeleteResponse,
@@ -20,6 +22,9 @@ import type {
   RosterData,
   RosterGetResponse,
   RosterUploadResponse,
+  ScheduledMaintenanceItem,
+  ScheduledMaintenanceListResponse,
+  ScheduledMaintenanceLog,
   TaskComment,
   TaskCompletion,
   TasksListResponse,
@@ -304,4 +309,54 @@ export async function createComment(payload: CreateCommentRequest): Promise<Task
     body: JSON.stringify(payload),
   });
   return data.comment;
+}
+
+export async function fetchScheduledMaintenance(): Promise<ScheduledMaintenanceListResponse> {
+  return requestJson<ScheduledMaintenanceListResponse>("/api/scheduled-maintenance");
+}
+
+export async function createScheduledItem(
+  payload: CreateScheduledItemRequest
+): Promise<ScheduledMaintenanceItem> {
+  const data = await requestJson<{ item: ScheduledMaintenanceItem }>(
+    "/api/scheduled-maintenance",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  return data.item;
+}
+
+export async function updateScheduledItem(
+  payload: Partial<CreateScheduledItemRequest> & { id: string }
+): Promise<ScheduledMaintenanceItem> {
+  const data = await requestJson<{ item: ScheduledMaintenanceItem }>(
+    "/api/scheduled-maintenance",
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+  return data.item;
+}
+
+export async function deleteScheduledItem(id: string): Promise<void> {
+  await requestJson<DeleteResponse>(
+    `/api/scheduled-maintenance?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function logScheduledMaintenanceChange(
+  payload: CreateScheduledLogRequest
+): Promise<ScheduledMaintenanceLog> {
+  const data = await requestJson<{ log: ScheduledMaintenanceLog }>(
+    "/api/scheduled-maintenance/logs",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  return data.log;
 }

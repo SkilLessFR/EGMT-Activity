@@ -230,3 +230,64 @@ export interface CommentsListResponse {
 export interface CreateCommentResponse {
   comment: TaskComment;
 }
+
+export type ScheduledMaintenanceStatus =
+  | "green"
+  | "amber"
+  | "red"
+  | "grey"
+  | "not_in_use";
+
+export interface ScheduledMaintenanceItem {
+  id: string;
+  name: string;
+  category: string;
+  location: string;
+  cycleDays: number;
+  warningDays: number;
+  inUse: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduledMaintenanceLog {
+  id: string;
+  itemId: string;
+  itemName: string;
+  location: string;
+  changedAt: string; // ISO timestamp
+  changedBy: string;
+  notes?: string;
+  createdAt: string; // ISO timestamp
+}
+
+export interface ScheduledMaintenanceWithStatus {
+  item: ScheduledMaintenanceItem;
+  status: ScheduledMaintenanceStatus;
+  lastLog: ScheduledMaintenanceLog | null;
+  nextDueAt: string | null;
+  daysRemaining: number | null;
+  daysElapsed: number | null;
+  progressPercent: number;
+}
+
+export interface ScheduledMaintenanceListResponse {
+  items: ScheduledMaintenanceItem[];
+  logs: ScheduledMaintenanceLog[];
+}
+
+export interface CreateScheduledItemRequest {
+  name: string;
+  category: string;
+  location: string;
+  cycleDays: number;
+  warningDays: number;
+  inUse?: boolean;
+}
+
+export interface CreateScheduledLogRequest {
+  itemId: string;
+  changedBy: string;
+  changedAt?: string;
+  notes?: string;
+}

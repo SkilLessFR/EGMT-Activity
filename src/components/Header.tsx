@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { ClipboardCheck, History, Moon, Sun, Users, Wrench } from "lucide-react";
+import {
+  CalendarClock,
+  ClipboardCheck,
+  History,
+  Moon,
+  Sun,
+  Users,
+  Wrench,
+} from "lucide-react";
 import {
   applyColorSchemeMeta,
   getStoredColorScheme,
@@ -8,7 +16,7 @@ import {
 import { getBucharestNowParts } from "../shared/timezone";
 import type { RosterData, Shift } from "../shared/types";
 
-export type AppSection = "daily" | "downtime" | "history";
+export type AppSection = "daily" | "scheduled" | "downtime" | "history";
 
 interface HeaderProps {
   activeSection: AppSection;
@@ -38,6 +46,7 @@ const SHIFT_NAMES: Record<Shift, string> = {
 
 const NAV_ITEMS: Array<{ id: AppSection; label: string; shortLabel: string; icon: typeof ClipboardCheck }> = [
   { id: "daily", label: "Daily Tasks", shortLabel: "Daily", icon: ClipboardCheck },
+  { id: "scheduled", label: "Scheduled Maintenance", shortLabel: "Scheduled", icon: CalendarClock },
   { id: "downtime", label: "Downtime", shortLabel: "Downtime", icon: Wrench },
   { id: "history", label: "History", shortLabel: "History", icon: History },
 ];
@@ -184,7 +193,7 @@ export function Header({
         className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.06] bg-canvas/90 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl md:hidden"
         aria-label="Mobile navigation"
       >
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
