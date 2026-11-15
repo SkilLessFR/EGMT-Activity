@@ -217,6 +217,12 @@
   .text-emerald-300 {
     color: light-dark(#047857, #6ee7b7);
   }
+  .text-emerald-300\/80 {
+    color: light-dark(#047857, rgb(110 231 183 / 0.8));
+  }
+  .text-emerald-300\/75 {
+    color: light-dark(#047857, rgb(110 231 183 / 0.75));
+  }
   .text-emerald-400 {
     color: light-dark(#059669, #34d399);
   }
@@ -314,6 +320,10 @@
 :root:has(> head > meta[name="color-scheme"][content="light"]) .font-semibold {
   font-weight: 700;
 }
+:root:has(> head > meta[name="color-scheme"][content="light"]) :is(.text-emerald-300, .text-emerald-300\/80, .text-emerald-300\/75, .text-emerald-400) {
+  font-weight: 700;
+  text-shadow: 0 0 1px rgba(6, 78, 59, 0.28);
+}
 
 @media (prefers-color-scheme: light) {
   :root:has(> head > meta[name="color-scheme"][content="light dark"]) body {
@@ -327,5 +337,9 @@
   }
   :root:has(> head > meta[name="color-scheme"][content="light dark"]) .font-semibold {
     font-weight: 700;
+  }
+  :root:has(> head > meta[name="color-scheme"][content="light dark"]) :is(.text-emerald-300, .text-emerald-300\/80, .text-emerald-300\/75, .text-emerald-400) {
+    font-weight: 700;
+    text-shadow: 0 0 1px rgba(6, 78, 59, 0.28);
   }
 }
