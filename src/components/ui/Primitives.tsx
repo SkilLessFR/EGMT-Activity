@@ -155,114 +155,59 @@ export function Time24Input({
   const clamp = (num: number, max: number) =>
     String(Math.max(0, Math.min(max, num))).padStart(2, "0");
 
-  const [rawH, rawM] = (value || "08:00").split(":");
-  const propH = /^\d{1,2}$/.test(rawH) ? clamp(Number(rawH), 23) : "08";
-  const propM = /^\d{1,2}$/.test(rawM) ? clamp(Number(rawM), 59) : "00";
-
-  const [hourText, setHourText] = useState(propH);
-  const [minText, setMinText] = useState(propM);
-  const focusedRef = useRef<"hour" | "min" | null>(null);
-  const minRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (focusedRef.current !== "hour") setHourText(propH);
-    if (focusedRef.current !== "min") setMinText(propM);
-  }, [propH, propM]);
-
-  const commit = (hStr: string, mStr: string) => {
-    const h = clamp(Number.parseInt(hStr || "0", 10) || 0, 23);
-    const m = clamp(Number.parseInt(mStr || "0", 10) || 0, 59);
-    setHourText(h);
-    setMinText(m);
-    onChange(`${h}:${m}`);
+  const normalize = (raw: string): string => {
+    const cleaned = raw.trim();
+    const colonMatch = /^(\d{1,2}):(\d{1,2})$/.exec(cleaned);
+    if (colonMatch) {
+      return `${clamp(Number(colonMatch[1]), 23)}:${clamp(Number(colonMatch[2]), 59)}`;
+    }
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length === 4) {
+      return `${clamp(Number(digits.slice(0, 2)), 23)}:${clamp(Number(digits.slice(2, 4)), 59)}`;
+    }
+    if (digits.length === 3) {
+      return `${clamp(Number(digits.slice(0, 1)), 23)}:${clamp(Number(digits.slice(1, 3)), 59)}`;
+    }
+    if (digits.length >= 1 && digits.length <= 2) {
+      return `${clamp(Number(digits), 23)}:00`;
+    }
+    return value || "08:00";
   };
 
+  const [text, setText] = useState(value || "08:00");
+  const isFocusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      setText(value || "08:00");
+    }
+  }, [value]);
+
   return (
-    <div
-      className="inline-flex items-center rounded-lg border border-white/[0.08] bg-surface-input px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus-within:border-white/25"
-      role="group"
+    <input
+      type="text"
+      inputMode="numeric"
+      maxLength={5}
+      value={text}
+      placeholder="HH:MM"
       aria-label={ariaLabel}
-    >
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        value={hourText}
-        aria-label={`${ariaLabel} hour`}
-        onFocus={(e) => {
-          focusedRef.current = "hour";
-          e.target.select();
-        }}
-        onMouseUp={(e) => e.preventDefault()}
-        onClick={(e) => e.currentTarget.select()}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-          setHourText(digits);
-          if (digits.length === 2) {
-            const clampedH = clamp(Number.parseInt(digits, 10), 23);
-            setHourText(clampedH);
-            onChange(`${clampedH}:${propM}`);
-            minRef.current?.focus();
-            minRef.current?.select();
-          }
-        }}
-        onBlur={() => {
-          focusedRef.current = null;
-          commit(hourText, minText);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
-            const next = (Number.parseInt(hourText || "0", 10) + 1) % 24;
-            commit(String(next), minText);
-          } else if (e.key === "ArrowDown") {
-            e.preventDefault();
-            const next = (Number.parseInt(hourText || "0", 10) + 23) % 24;
-            commit(String(next), minText);
-          }
-        }}
-        className="w-6 bg-transparent text-center text-zinc-100 focus:outline-none"
-      />
-      <span className="px-0.5 text-zinc-400">:</span>
-      <input
-        ref={minRef}
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        value={minText}
-        aria-label={`${ariaLabel} minute`}
-        onFocus={(e) => {
-          focusedRef.current = "min";
-          e.target.select();
-        }}
-        onMouseUp={(e) => e.preventDefault()}
-        onClick={(e) => e.currentTarget.select()}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-          setMinText(digits);
-          if (digits.length === 2) {
-            const clampedM = clamp(Number.parseInt(digits, 10), 59);
-            setMinText(clampedM);
-            onChange(`${propH}:${clampedM}`);
-          }
-        }}
-        onBlur={() => {
-          focusedRef.current = null;
-          commit(hourText, minText);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
-            const next = (Number.parseInt(minText || "0", 10) + 1) % 60;
-            commit(hourText, String(next));
-          } else if (e.key === "ArrowDown") {
-            e.preventDefault();
-            const next = (Number.parseInt(minText || "0", 10) + 59) % 60;
-            commit(hourText, String(next));
-          }
-        }}
-        className="w-6 bg-transparent text-center text-zinc-100 focus:outline-none"
-      />
-    </div>
+      onFocus={() => {
+        isFocusedRef.current = true;
+      }}
+      onChange={(e) => {
+        const next = e.target.value.replace(/[^\d:]/g, "").slice(0, 5);
+        setText(next);
+        if (/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) {
+          onChange(next);
+        }
+      }}
+      onBlur={() => {
+        isFocusedRef.current = false;
+        const normalized = normalize(text);
+        setText(normalized);
+        onChange(normalized);
+      }}
+      className="w-24 rounded-lg border border-white/[0.08] bg-surface-input px-3 py-1.5 text-center font-mono text-sm tabular-nums text-zinc-100 focus:border-white/25 focus:outline-none"
+    />
   );
 }
