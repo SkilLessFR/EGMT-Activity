@@ -1169,7 +1169,6 @@ export function DailyTasksView({
     dueUntilDeadlines.length > 0
       ? `Due Until ${dueUntilDeadlines.join(", ")}`
       : "Due Until";
-  const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
   const filteredManageTasks = useMemo(
     () =>
       manageShiftFilter === "ALL"
@@ -1528,55 +1527,9 @@ export function DailyTasksView({
         </div>
       </div>
 
-      {/* Inline Status Summary + Shift Filter */}
+      {/* Shift Filter */}
       {!loading && !error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2 text-xs text-zinc-500">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>
-              <span className="font-mono tabular-nums text-zinc-200">{pendingCount}</span> pending
-            </span>
-            {dueNowStrict.length > 0 && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span>
-                  <span className="font-mono tabular-nums text-zinc-200">
-                    {dueNowStrict.length}
-                  </span>{" "}
-                  due now
-                </span>
-              </>
-            )}
-            {dueUntilTasks.length > 0 && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span>
-                  <span className="font-mono tabular-nums text-zinc-200">
-                    {dueUntilTasks.length}
-                  </span>{" "}
-                  due until {dueUntilDeadlines.join(", ")}
-                </span>
-              </>
-            )}
-            <span className="text-zinc-600">·</span>
-            <span>
-              <span className="font-mono tabular-nums text-zinc-200">
-                {grouped.completed.length}
-              </span>{" "}
-              completed
-            </span>
-            {grouped.overdue.length > 0 && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span>
-                  <span className="font-mono tabular-nums text-red-400">
-                    {grouped.overdue.length}
-                  </span>{" "}
-                  overdue
-                </span>
-              </>
-            )}
-          </div>
-
+        <div className="flex items-center justify-end border-b border-white/[0.06] pb-2 text-xs text-zinc-500">
           <div className="inline-flex rounded-lg bg-white/[0.04] p-0.5">
             {(
               [
