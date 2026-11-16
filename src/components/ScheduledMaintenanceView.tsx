@@ -3,6 +3,8 @@ import {
   AlertCircle,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Edit2,
   History,
   Plus,
@@ -81,6 +83,12 @@ function toLocalDateTimeInputValue(date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const SCHEDULED_CATEGORY_PRESETS = [
+  "Roulette Ball Change",
+  "Dice Change",
+  "Ball Change",
+] as const;
+
 export function ScheduledMaintenanceView({
   roster,
   onOpenRosterModal,
@@ -91,6 +99,13 @@ export function ScheduledMaintenanceView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({
+    "Roulette Ball Change": true,
+    "Dice Change": false,
+    "Ball Change": false,
+  });
 
   // Log Change Modal
   const [logTarget, setLogTarget] = useState<ScheduledMaintenanceItem | null>(null);
@@ -184,6 +199,34 @@ export function ScheduledMaintenanceView({
     }
     return { overdue, dueSoon, ok };
   }, [filteredStatuses]);
+
+  const groupedCategories = useMemo(() => {
+    const groups = new Map<string, ScheduledMaintenanceWithStatus[]>();
+    for (const preset of SCHEDULED_CATEGORY_PRESETS) {
+      groups.set(preset, []);
+    }
+    for (const entry of filteredStatuses) {
+      const rawCat = entry.item.category.trim() || "Other";
+      const matchedPreset = SCHEDULED_CATEGORY_PRESETS.find(
+        (p) => p.toLowerCase() === rawCat.toLowerCase()
+      );
+      const key = matchedPreset ?? rawCat;
+      const list = groups.get(key) ?? [];
+      list.push(entry);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries()).map(([category, entries]) => ({
+      category,
+      entries,
+    }));
+  }, [filteredStatuses]);
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [category]: !(prev[category] ?? true),
+    }));
+  };
 
   const openLogModal = (item: ScheduledMaintenanceItem) => {
     setLogTarget(item);
@@ -432,111 +475,200 @@ export function ScheduledMaintenanceView({
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {filteredStatuses.map((entry) => {
-            const { item, status, lastLog, nextDueAt, daysRemaining, progressPercent } =
-              entry;
-            const statusMeta = STATUS_LABEL[status];
+        <div className="space-y-3">
+          {groupedCategories.map(({ category, entries }) => {
+            const isExpanded =
+              expandedCategories[category] ?? entries.length > 0;
+            const redCount = entries.filter((e) => e.status === "red").length;
+            const amberCount = entries.filter(
+              (e) => e.status === "amber"
+            ).length;
 
             return (
-              <div
-                key={item.id}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4"
+              <section
+                key={category}
+                className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015]"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-zinc-100">
-                          {item.name}
-                        </h3>
-                        <StatusBadge tone="sky">{item.location}</StatusBadge>
-                        <StatusDot tone={statusMeta.tone}>{statusMeta.text}</StatusDot>
-                      </div>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        {item.category} · Every {item.cycleDays}d
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openItemModal(item)}
-                      className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-zinc-100"
-                      aria-label={`Edit ${item.name}`}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  {item.inUse && (
-                    <div className="mt-3">
-                      <div className="mb-1 flex items-center justify-between text-xs">
-                        <span className="font-mono tabular-nums text-zinc-400">
-                          {nextDueAt
-                            ? `Next: ${formatDisplayDate(getBucharestDate(new Date(nextDueAt)))}`
-                            : "Awaiting first log"}
-                        </span>
-                        <span
-                          className={`font-mono tabular-nums ${
-                            status === "red"
-                              ? "text-red-400"
-                              : status === "amber"
-                                ? "text-amber-400"
-                                : "text-zinc-300"
-                          }`}
-                        >
-                          {formatDaysDelta(daysRemaining)}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                        <div
-                          className={`h-full rounded-full transition-all ${PROGRESS_BAR_COLOR[status]}`}
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-3 text-xs text-zinc-400">
-                    {lastLog ? (
-                      <div className="space-y-0.5">
-                        <div>
-                          Last changed:{" "}
-                          <span className="font-mono tabular-nums text-zinc-200">
-                            {formatBucharestDateTime(lastLog.changedAt)}
-                          </span>{" "}
-                          by{" "}
-                          <span className="font-semibold text-zinc-100">
-                            {lastLog.changedBy}
-                          </span>
-                        </div>
-                        {lastLog.notes && (
-                          <div className="text-zinc-500">Note: {lastLog.notes}</div>
-                        )}
-                      </div>
+                <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" />
                     ) : (
-                      <span className="text-zinc-500">No change recorded yet.</span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                    )}
+                    <span className="truncate text-sm font-semibold text-zinc-100">
+                      {category}
+                    </span>
+                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] tabular-nums text-zinc-300">
+                      {entries.length}
+                    </span>
+                    {redCount > 0 && (
+                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-mono text-[11px] font-medium tabular-nums text-red-400">
+                        {redCount} due
+                      </span>
+                    )}
+                    {amberCount > 0 && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[11px] font-medium tabular-nums text-amber-400">
+                        {amberCount} soon
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openItemModal(null);
+                      setItemCategory(category);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-xs text-zinc-300 transition hover:border-white/[0.2] hover:text-zinc-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Add</span>
+                  </button>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-white/[0.06] p-3">
+                    {entries.length === 0 ? (
+                      <p className="py-2 text-center text-xs text-zinc-500">
+                        No items in {category} yet.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {entries.map((entry) => {
+                          const {
+                            item,
+                            status,
+                            lastLog,
+                            nextDueAt,
+                            daysRemaining,
+                            progressPercent,
+                          } = entry;
+                          const statusMeta = STATUS_LABEL[status];
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex flex-col justify-between gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3"
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h3 className="text-sm font-semibold text-zinc-100">
+                                        {item.name}
+                                      </h3>
+                                      <StatusBadge tone="sky">
+                                        {item.location}
+                                      </StatusBadge>
+                                      <StatusDot tone={statusMeta.tone}>
+                                        {statusMeta.text}
+                                      </StatusDot>
+                                    </div>
+                                    <p className="mt-0.5 text-xs text-zinc-500">
+                                      {item.category} · Every {item.cycleDays}d
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => openItemModal(item)}
+                                    className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-white/[0.07] hover:text-zinc-100"
+                                    aria-label={`Edit ${item.name}`}
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+
+                                {item.inUse && (
+                                  <div className="mt-2">
+                                    <div className="mb-1 flex items-center justify-between text-xs">
+                                      <span className="font-mono tabular-nums text-zinc-400">
+                                        {nextDueAt
+                                          ? `Next: ${formatDisplayDate(getBucharestDate(new Date(nextDueAt)))}`
+                                          : "Awaiting first log"}
+                                      </span>
+                                      <span
+                                        className={`font-mono tabular-nums ${
+                                          status === "red"
+                                            ? "text-red-400"
+                                            : status === "amber"
+                                              ? "text-amber-400"
+                                              : "text-zinc-300"
+                                        }`}
+                                      >
+                                        {formatDaysDelta(daysRemaining)}
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                                      <div
+                                        className={`h-full rounded-full transition-all ${PROGRESS_BAR_COLOR[status]}`}
+                                        style={{ width: `${progressPercent}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="mt-2 text-xs text-zinc-400">
+                                  {lastLog ? (
+                                    <div className="space-y-0.5">
+                                      <div>
+                                        Last changed:{" "}
+                                        <span className="font-mono tabular-nums text-zinc-200">
+                                          {formatBucharestDateTime(
+                                            lastLog.changedAt
+                                          )}
+                                        </span>{" "}
+                                        by{" "}
+                                        <span className="font-semibold text-zinc-100">
+                                          {lastLog.changedBy}
+                                        </span>
+                                      </div>
+                                      {lastLog.notes && (
+                                        <div className="text-zinc-500">
+                                          Note: {lastLog.notes}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-zinc-500">
+                                      No change recorded yet.
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2">
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => setHistoryTarget(item)}
+                                  className="px-2"
+                                >
+                                  <History className="h-3.5 w-3.5" />
+                                  History
+                                </Button>
+                                {item.inUse && (
+                                  <Button
+                                    variant="primary"
+                                    onClick={() => openLogModal(item)}
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Log Change
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setHistoryTarget(item)}
-                    className="px-2"
-                  >
-                    <History className="h-3.5 w-3.5" />
-                    History
-                  </Button>
-                  {item.inUse && (
-                    <Button variant="primary" onClick={() => openLogModal(item)}>
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Log Change
-                    </Button>
-                  )}
-                </div>
-              </div>
+                )}
+              </section>
             );
           })}
         </div>
@@ -717,6 +849,22 @@ export function ScheduledMaintenanceView({
               <label className="mb-1 block text-xs font-medium text-zinc-300">
                 Category
               </label>
+              <div className="mb-1.5 flex flex-wrap gap-1">
+                {SCHEDULED_CATEGORY_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setItemCategory(preset)}
+                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition ${
+                      itemCategory.trim().toLowerCase() === preset.toLowerCase()
+                        ? "btn-primary-theme border-transparent font-semibold"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.2]"
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
               <input
                 type="text"
                 value={itemCategory}
