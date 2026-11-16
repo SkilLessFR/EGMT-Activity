@@ -9,6 +9,8 @@ import type {
 import {
   errorResponse,
   isNonEmptyString,
+  isValidTargetShift,
+  isValidTimeHHMM,
   jsonResponse,
   parseJsonBody,
 } from "../_lib/http";
@@ -85,6 +87,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     cycleDays: req.cycleDays,
     warningDays: req.warningDays,
     inUse: typeof req.inUse === "boolean" ? req.inUse : true,
+    ...(isValidTargetShift(body.targetShift)
+      ? { targetShift: body.targetShift }
+      : {}),
+    ...(isValidTimeHHMM(body.scheduledTime)
+      ? { scheduledTime: body.scheduledTime }
+      : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -128,6 +136,12 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
       ? { warningDays: body.warningDays }
       : {}),
     ...(typeof body.inUse === "boolean" ? { inUse: body.inUse } : {}),
+    ...(isValidTargetShift(body.targetShift)
+      ? { targetShift: body.targetShift }
+      : {}),
+    ...(isValidTimeHHMM(body.scheduledTime)
+      ? { scheduledTime: body.scheduledTime }
+      : {}),
     updatedAt: new Date().toISOString(),
   };
 

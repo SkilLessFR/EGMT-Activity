@@ -1,10 +1,21 @@
-import { getBucharestDate } from "../shared/timezone";
+import {
+  getBucharestDate,
+  getPreviousCalendarDate,
+} from "../shared/timezone";
 import type {
+  DailyOccurrence,
+  RosterData,
   ScheduledMaintenanceItem,
   ScheduledMaintenanceLog,
   ScheduledMaintenanceStatus,
   ScheduledMaintenanceWithStatus,
+  TargetShift,
+  TaskCompletion,
 } from "../shared/types";
+import {
+  computeDailyOccurrenceStatus,
+  getEligibleEmployeesForDailyTask,
+} from "./dailySchedule";
 
 export const DEFAULT_CYCLE_DAYS = 5;
 export const DEFAULT_WARNING_DAYS = 1;
@@ -183,4 +194,130 @@ export function computeScheduledMaintenanceStatus(
     daysElapsed,
     progressPercent,
   };
+}
+
+function defaultScheduledTimeForShift(shift: TargetShift): string {
+  switch (shift) {
+    case "A":
+      return "16:00";
+    case "N":
+      return "00:00";
+    case "MID":
+      return "12:00";
+    case "M":
+    case "ALL_ACTIVE":
+    default:
+      return "08:00";
+  }
+}
+
+/**
+ * Projects Scheduled Maintenance items onto Daily Tasks on the date they are due,
+ * overdue (shown on today), or completed on `selectedDate`.
+ */
+export function generateScheduledDailyOccurrences(params: {
+  items: ScheduledMaintenanceItem[];
+  logs: ScheduledMaintenanceLog[];
+  selectedDate: string;
+  currentRoster?: RosterData | null;
+  previousRoster?: RosterData | null;
+  nowDate?: string;
+  nowTime?: string;
+}): DailyOccurrence[] {
+  const {
+    items,
+    logs,
+    selectedDate,
+    currentRoster = null,
+    previousRoster = null,
+    nowDate = selectedDate,
+    nowTime = "00:00",
+  } = params;
+
+  const prevDate = getPreviousCalendarDate(selectedDate);
+  const occurrences: DailyOccurrence[] = [];
+
+  for (const item of items) {
+    if (!item.inUse) continue;
+
+    const lastLog = getLatestLogForItem(item.id, logs);
+    const lastLogDate = lastLog
+      ? getBucharestDate(new Date(lastLog.changedAt))
+      : null;
+    const nextDueDate = lastLog
+      ? getBucharestDate(
+          new Date(addDaysToIsoDate(lastLog.changedAt, item.cycleDays))
+        )
+      : null;
+
+    const completedOnSelected = lastLog !== null && lastLogDate === selectedDate;
+    const dueOnSelected = nextDueDate !== null && nextDueDate === selectedDate;
+    const overdueShownToday =
+      selectedDate === nowDate &&
+      ((nextDueDate !== null && nextDueDate < selectedDate) ||
+        lastLog === null);
+
+    if (!completedOnSelected && !dueOnSelected && !overdueShownToday) {
+      continue;
+    }
+
+    const targetShift: TargetShift = item.targetShift ?? "M";
+    const scheduledTime =
+      item.scheduledTime ?? defaultScheduledTimeForShift(targetShift);
+    const occurrenceId = `scheduled:${item.id}:${selectedDate}`;
+
+    const completion: TaskCompletion | null = completedOnSelected
+      ? {
+          id: lastLog.id,
+          occurrenceId,
+          taskId: item.id,
+          taskType: "SCHEDULED",
+          taskTitle: `${item.name} (${item.location}) · ${item.category}`,
+          scheduledDate: selectedDate,
+          scheduledTime,
+          completedBy: lastLog.changedBy,
+          completedAt: lastLog.changedAt,
+        }
+      : null;
+
+    const status = completedOnSelected
+      ? "completed"
+      : overdueShownToday && (nextDueDate === null || nextDueDate < selectedDate)
+        ? "overdue"
+        : computeDailyOccurrenceStatus({
+            scheduledDate: selectedDate,
+            scheduledTime,
+            completion,
+            nowDate,
+            nowTime,
+            dueWindowMinutes: 60,
+          });
+
+    const eligibleEmployees = getEligibleEmployeesForDailyTask({
+      targetShift,
+      scheduledDate: selectedDate,
+      scheduledTime,
+      currentRoster,
+      previousRoster,
+      previousDate: prevDate,
+    });
+
+    occurrences.push({
+      occurrenceId,
+      taskId: item.id,
+      taskTitle: `${item.name} (${item.location})`,
+      taskDescription: item.category,
+      category: item.category,
+      targetShift,
+      scheduledDate: selectedDate,
+      scheduledTime,
+      eligibleEmployees,
+      status,
+      completion,
+      source: "SCHEDULED",
+      scheduledItemId: item.id,
+    });
+  }
+
+  return occurrences;
 }

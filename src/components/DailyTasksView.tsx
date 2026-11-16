@@ -24,7 +24,9 @@ import {
   fetchCompletions,
   fetchDailyTasks,
   fetchRoster,
+  fetchScheduledMaintenance,
   getErrorMessage,
+  logScheduledMaintenanceChange,
   updateDailyTask,
 } from "../api/client";
 import { compressImageToDataUrl } from "../utils/image";
@@ -37,6 +39,7 @@ import {
   groupDailyOccurrences,
   inferDailyTaskCategory,
 } from "../domain/dailySchedule";
+import { generateScheduledDailyOccurrences } from "../domain/scheduledMaintenance";
 import {
   formatBucharestDateTime,
   formatDisplayDate,
@@ -48,6 +51,8 @@ import type {
   DailyOccurrence,
   DailyTask,
   RosterData,
+  ScheduledMaintenanceItem,
+  ScheduledMaintenanceLog,
   TargetShift,
   TaskComment,
   TaskCompletion,
@@ -915,6 +920,12 @@ export function DailyTasksView({
   const [selectedDate, setSelectedDate] = useState(() => getBucharestNowParts().date);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [scheduledItems, setScheduledItems] = useState<
+    ScheduledMaintenanceItem[]
+  >([]);
+  const [scheduledLogs, setScheduledLogs] = useState<ScheduledMaintenanceLog[]>(
+    []
+  );
   const [completions, setCompletions] = useState<TaskCompletion[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -961,14 +972,18 @@ export function DailyTasksView({
         prevCompletionsRes,
         commentsRes,
         prevCommentsRes,
+        scheduledRes,
       ] = await Promise.all([
         fetchDailyTasks(),
         fetchCompletions({ date: selectedDate }),
         needsPrevCompletions ? fetchCompletions({ date: prevDate }) : Promise.resolve([]),
         fetchComments({ date: selectedDate }),
         needsPrevCompletions ? fetchComments({ date: prevDate }) : Promise.resolve([]),
+        fetchScheduledMaintenance(),
       ]);
       setTasks(tasksRes);
+      setScheduledItems(scheduledRes.items);
+      setScheduledLogs(scheduledRes.logs);
       const mergedMap = new Map<string, TaskCompletion>();
       for (const c of completionsRes) mergedMap.set(c.id, c);
       for (const c of prevCompletionsRes) mergedMap.set(c.id, c);
@@ -1006,25 +1021,46 @@ export function DailyTasksView({
   const previousRoster =
     prevMonthKey === currentMonthKey ? currentRoster : (rosterCache[prevMonthKey] ?? null);
 
-  const dayOccurrences = useMemo(
-    () =>
-      generateDailyOccurrences({
-        tasks,
-        selectedDate,
-        completions,
-        currentRoster,
-        previousRoster,
-        nowDate: nowParts.date,
-        nowTime: nowParts.time,
-      }),
-    [tasks, selectedDate, completions, currentRoster, previousRoster, nowParts.date, nowParts.time]
-  );
+  const dayOccurrences = useMemo(() => {
+    const daily = generateDailyOccurrences({
+      tasks,
+      selectedDate,
+      completions,
+      currentRoster,
+      previousRoster,
+      nowDate: nowParts.date,
+      nowTime: nowParts.time,
+    });
+    const scheduled = generateScheduledDailyOccurrences({
+      items: scheduledItems,
+      logs: scheduledLogs,
+      selectedDate,
+      currentRoster,
+      previousRoster,
+      nowDate: nowParts.date,
+      nowTime: nowParts.time,
+    });
+    return [...daily, ...scheduled].sort((a, b) => {
+      const t = a.scheduledTime.localeCompare(b.scheduledTime);
+      return t !== 0 ? t : a.taskTitle.localeCompare(b.taskTitle);
+    });
+  }, [
+    tasks,
+    scheduledItems,
+    scheduledLogs,
+    selectedDate,
+    completions,
+    currentRoster,
+    previousRoster,
+    nowParts.date,
+    nowParts.time,
+  ]);
 
   const prevDateOccurrences = useMemo(() => {
     if (shiftFilter !== "N" || shiftWindow.nightHalf !== "second") {
       return [];
     }
-    return generateDailyOccurrences({
+    const daily = generateDailyOccurrences({
       tasks,
       selectedDate: prevDate,
       completions,
@@ -1033,7 +1069,28 @@ export function DailyTasksView({
       nowDate: nowParts.date,
       nowTime: nowParts.time,
     });
-  }, [shiftFilter, shiftWindow.nightHalf, tasks, prevDate, completions, previousRoster, nowParts.date, nowParts.time]);
+    const scheduled = generateScheduledDailyOccurrences({
+      items: scheduledItems,
+      logs: scheduledLogs,
+      selectedDate: prevDate,
+      currentRoster: previousRoster,
+      previousRoster: null,
+      nowDate: nowParts.date,
+      nowTime: nowParts.time,
+    });
+    return [...daily, ...scheduled];
+  }, [
+    shiftFilter,
+    shiftWindow.nightHalf,
+    tasks,
+    scheduledItems,
+    scheduledLogs,
+    prevDate,
+    completions,
+    previousRoster,
+    nowParts.date,
+    nowParts.time,
+  ]);
 
   const occurrences = useMemo(() => {
     if (shiftFilter === shiftWindow.primaryShift) {
@@ -1155,6 +1212,36 @@ export function DailyTasksView({
 
   const handleComplete = async (occ: DailyOccurrence, employee: string) => {
     const key = `${occ.occurrenceId}:${employee}`;
+
+    if (occ.source === "SCHEDULED" && occ.scheduledItemId) {
+      setSubmittingKey(key);
+      try {
+        const createdLog = await logScheduledMaintenanceChange({
+          itemId: occ.scheduledItemId,
+          changedBy: employee,
+        });
+        setScheduledLogs((prev) =>
+          [createdLog, ...prev].sort((a, b) =>
+            b.changedAt.localeCompare(a.changedAt)
+          )
+        );
+        showToast({
+          tone: "success",
+          title: "Scheduled change logged",
+          description: `${occ.taskTitle} · ${employee}`,
+        });
+      } catch (err) {
+        showToast({
+          tone: "error",
+          title: "Failed to log scheduled change",
+          description: getErrorMessage(err),
+        });
+      } finally {
+        setSubmittingKey(null);
+      }
+      return;
+    }
+
     const optimisticId = `optimistic:${key}:${Date.now()}`;
     const optimisticCompletion: TaskCompletion = {
       id: optimisticId,

@@ -30,6 +30,7 @@ import type {
   ScheduledMaintenanceLog,
   ScheduledMaintenanceStatus,
   ScheduledMaintenanceWithStatus,
+  TargetShift,
 } from "../shared/types";
 import { ConfirmDialog, Modal } from "./ui/Modal";
 import {
@@ -127,6 +128,8 @@ export function ScheduledMaintenanceView({
   const [itemCycleDays, setItemCycleDays] = useState(5);
   const [itemWarningDays, setItemWarningDays] = useState(1);
   const [itemInUse, setItemInUse] = useState(true);
+  const [itemTargetShift, setItemTargetShift] = useState<TargetShift>("M");
+  const [itemScheduledTime, setItemScheduledTime] = useState("08:00");
   const [savingItem, setSavingItem] = useState(false);
   const [deletingItem, setDeletingItem] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -287,6 +290,8 @@ export function ScheduledMaintenanceView({
       setItemCycleDays(item.cycleDays);
       setItemWarningDays(item.warningDays);
       setItemInUse(item.inUse);
+      setItemTargetShift(item.targetShift ?? "M");
+      setItemScheduledTime(item.scheduledTime ?? "08:00");
     } else {
       setItemName("");
       setItemCategory("Roulette Ball Change");
@@ -294,6 +299,8 @@ export function ScheduledMaintenanceView({
       setItemCycleDays(5);
       setItemWarningDays(1);
       setItemInUse(true);
+      setItemTargetShift("M");
+      setItemScheduledTime("08:00");
     }
     setItemModalOpen(true);
   };
@@ -322,6 +329,8 @@ export function ScheduledMaintenanceView({
           cycleDays: itemCycleDays,
           warningDays: itemWarningDays,
           inUse: itemInUse,
+          targetShift: itemTargetShift,
+          scheduledTime: itemScheduledTime,
         });
         setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
         showToast({ tone: "success", title: "Item updated" });
@@ -333,6 +342,8 @@ export function ScheduledMaintenanceView({
           cycleDays: itemCycleDays,
           warningDays: itemWarningDays,
           inUse: itemInUse,
+          targetShift: itemTargetShift,
+          scheduledTime: itemScheduledTime,
         });
         setItems((prev) => [...prev, created]);
         showToast({ tone: "success", title: "Scheduled item added" });
@@ -885,6 +896,36 @@ export function ScheduledMaintenanceView({
                 placeholder="e.g. Afi or Rahova"
                 className={inputClassName}
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Daily Tasks Shift
+              </label>
+              <select
+                value={itemTargetShift}
+                onChange={(e) =>
+                  setItemTargetShift(e.target.value as TargetShift)
+                }
+                className={selectClassName}
+              >
+                <option value="M">Morning (M · 06:00–14:00)</option>
+                <option value="A">Afternoon (A · 14:00–22:00)</option>
+                <option value="N">Night (N · 22:00–06:00)</option>
+                <option value="ALL_ACTIVE">All Active Shifts</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Scheduled Time (24h)
+              </label>
+              <Time24Input
+                value={itemScheduledTime}
+                onChange={setItemScheduledTime}
+                ariaLabel="Scheduled maintenance time"
               />
             </div>
           </div>

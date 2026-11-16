@@ -68,6 +68,8 @@ export interface DailyOccurrence {
   eligibleEmployees: string[];
   status: DailyOccurrenceStatus;
   completion: TaskCompletion | null;
+  source?: "DAILY" | "SCHEDULED";
+  scheduledItemId?: string;
 }
 
 export interface MaintenanceOccurrence {
@@ -252,6 +254,8 @@ export interface ScheduledMaintenanceItem {
   cycleDays: number;
   warningDays: number;
   inUse: boolean;
+  targetShift?: TargetShift;
+  scheduledTime?: string; // HH:MM
   createdAt: string;
   updatedAt: string;
 }
@@ -289,6 +293,8 @@ export interface CreateScheduledItemRequest {
   cycleDays: number;
   warningDays: number;
   inUse?: boolean;
+  targetShift?: TargetShift;
+  scheduledTime?: string;
 }
 
 export interface CreateScheduledLogRequest {
