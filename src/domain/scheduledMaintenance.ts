@@ -1,5 +1,6 @@
 import {
   getBucharestDate,
+  getBucharestTime,
   getPreviousCalendarDate,
 } from "../shared/timezone";
 import type {
@@ -14,6 +15,7 @@ import type {
 } from "../shared/types";
 import {
   computeDailyOccurrenceStatus,
+  getCurrentShiftWindow,
   getEligibleEmployeesForDailyTask,
 } from "./dailySchedule";
 
@@ -261,9 +263,19 @@ export function generateScheduledDailyOccurrences(params: {
       continue;
     }
 
-    const targetShift: TargetShift = item.targetShift ?? "M";
-    const scheduledTime =
-      item.scheduledTime ?? defaultScheduledTimeForShift(targetShift);
+    const lastLogTime = lastLog
+      ? getBucharestTime(new Date(lastLog.changedAt))
+      : null;
+    const inferredShift: TargetShift = lastLogTime
+      ? getCurrentShiftWindow(lastLogTime).primaryShift
+      : "M";
+
+    const targetShift: TargetShift = completedOnSelected
+      ? item.targetShift ?? inferredShift
+      : item.targetShift ?? inferredShift;
+    const scheduledTime = completedOnSelected
+      ? (lastLogTime ?? item.scheduledTime ?? defaultScheduledTimeForShift(targetShift))
+      : (item.scheduledTime ?? lastLogTime ?? defaultScheduledTimeForShift(targetShift));
     const occurrenceId = `scheduled:${item.id}:${selectedDate}`;
 
     const completion: TaskCompletion | null = completedOnSelected
