@@ -37,6 +37,7 @@ import {
   getCurrentShiftWindow,
   getShiftStartTime,
   groupDailyOccurrences,
+  inferDailyTaskCategory,
 } from "../domain/dailySchedule";
 import { generateScheduledDailyOccurrences } from "../domain/scheduledMaintenance";
 import {
@@ -934,6 +935,9 @@ export function DailyTasksView({
 
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [manageShiftFilter, setManageShiftFilter] = useState<"ALL" | TargetShift>("ALL");
+  const [expandedManageCategories, setExpandedManageCategories] = useState<
+    Record<string, boolean>
+  >({});
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
@@ -1177,6 +1181,19 @@ export function DailyTasksView({
     [tasks, manageShiftFilter]
   );
 
+  const groupedManageTasks = useMemo(() => {
+    const map = new Map<string, DailyTask[]>();
+    for (const task of filteredManageTasks) {
+      const cat = inferDailyTaskCategory(task.title, task.category);
+      const list = map.get(cat) ?? [];
+      list.push(task);
+      map.set(cat, list);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([category, items]) => ({ category, items }));
+  }, [filteredManageTasks]);
+
   const commentsByOccurrence = useMemo(() => {
     const map = new Map<string, TaskComment[]>();
     for (const c of comments) {
@@ -1329,14 +1346,6 @@ export function DailyTasksView({
               ))}
             {occ.status === "upcoming" && <StatusDot tone="neutral">Upcoming</StatusDot>}
             {isCompleted && <StatusDot tone="emerald">Completed</StatusDot>}
-            {occ.category && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-zinc-300">
-                  {occ.category}
-                </span>
-              </>
-            )}
           </div>
 
           {isCompleted && occ.completion ? (
@@ -1652,43 +1661,87 @@ export function DailyTasksView({
                   No tasks configured for this shift.
                 </p>
               ) : (
-                <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
-                  {filteredManageTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-3 py-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-zinc-100">
-                            {task.title}
-                          </span>
-                          {!task.enabled && <StatusDot tone="neutral">Disabled</StatusDot>}
-                        </div>
-                        <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500">
-                          Shift {task.targetShift} ·{" "}
-                          {task.schedule.type === "interval"
-                            ? `every ${task.schedule.everyDays}d from ${task.schedule.startDate}`
-                            : task.schedule.type}{" "}
-                          ·{" "}
-                          {task.dueUntil
-                            ? `${task.times[0]} → ${task.dueUntil}`
-                            : task.times.join(", ")}
-                        </div>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setManageModalOpen(false);
-                          setEditingTask(task);
-                          setFormModalOpen(true);
-                        }}
+                <div className="space-y-2.5">
+                  {groupedManageTasks.map(({ category, items }) => {
+                    const isExpanded =
+                      expandedManageCategories[category] ?? true;
+                    return (
+                      <div
+                        key={category}
+                        className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.015]"
                       >
-                        <Edit2 className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                    </div>
-                  ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedManageCategories((prev) => ({
+                              ...prev,
+                              [category]: !(prev[category] ?? true),
+                            }))
+                          }
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition hover:bg-white/[0.03]"
+                        >
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? (
+                              <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
+                            )}
+                            <span className="text-xs font-semibold text-zinc-100">
+                              {category}
+                            </span>
+                          </div>
+                          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] tabular-nums text-zinc-300">
+                            {items.length}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="divide-y divide-white/[0.06] border-t border-white/[0.06] px-3">
+                            {items.map((task) => (
+                              <div
+                                key={task.id}
+                                className="flex items-center justify-between gap-3 py-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate text-sm font-medium text-zinc-100">
+                                      {task.title}
+                                    </span>
+                                    {!task.enabled && (
+                                      <StatusDot tone="neutral">
+                                        Disabled
+                                      </StatusDot>
+                                    )}
+                                  </div>
+                                  <div className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500">
+                                    Shift {task.targetShift} ·{" "}
+                                    {task.schedule.type === "interval"
+                                      ? `every ${task.schedule.everyDays}d from ${task.schedule.startDate}`
+                                      : task.schedule.type}{" "}
+                                    ·{" "}
+                                    {task.dueUntil
+                                      ? `${task.times[0]} → ${task.dueUntil}`
+                                      : task.times.join(", ")}
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => {
+                                    setManageModalOpen(false);
+                                    setEditingTask(task);
+                                    setFormModalOpen(true);
+                                  }}
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </>
