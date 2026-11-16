@@ -18,6 +18,7 @@ import {
   parseJsonBody,
 } from "../_lib/http";
 import {
+  bumpSyncVersion,
   completionsMonthKey,
   dailyCompletionKey,
   type Env,
@@ -177,7 +178,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   };
 
   monthMap[kvKey] = completion;
-  await kv.put(completionsMonthKey(monthKey), JSON.stringify(monthMap));
+  await Promise.all([
+    kv.put(completionsMonthKey(monthKey), JSON.stringify(monthMap)),
+    bumpSyncVersion(kv),
+  ]);
 
   const response: CreateCompletionResponse = { completion };
   return jsonResponse(response, 201);

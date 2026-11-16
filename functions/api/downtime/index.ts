@@ -14,7 +14,7 @@ import {
   jsonResponse,
   parseJsonBody,
 } from "../_lib/http";
-import { downtimeScheduleKey, type Env } from "../_lib/kv";
+import { bumpSyncVersion, downtimeScheduleKey, type Env } from "../_lib/kv";
 
 function normalizePeopleList(people: unknown): string[] | null {
   if (!Array.isArray(people)) return null;
@@ -75,10 +75,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     uploadedAt: schedule.uploadedAt || new Date().toISOString(),
   };
 
-  await context.env.EGMT_ACTIVIT.put(
-    downtimeScheduleKey(normalizedSchedule.monthKey),
-    JSON.stringify(normalizedSchedule)
-  );
+  await Promise.all([
+    context.env.EGMT_ACTIVIT.put(
+      downtimeScheduleKey(normalizedSchedule.monthKey),
+      JSON.stringify(normalizedSchedule)
+    ),
+    bumpSyncVersion(context.env.EGMT_ACTIVIT),
+  ]);
 
   const response: DowntimeScheduleResponse = {
     schedule: normalizedSchedule,
@@ -142,7 +145,10 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await context.env.EGMT_ACTIVIT.put(key, JSON.stringify(schedule));
+    await Promise.all([
+      context.env.EGMT_ACTIVIT.put(key, JSON.stringify(schedule)),
+      bumpSyncVersion(context.env.EGMT_ACTIVIT),
+    ]);
     return jsonResponse({ schedule } satisfies DowntimeScheduleResponse, 200);
   }
 
@@ -182,7 +188,10 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   }
 
   schedule.tasks[taskIdx] = updated;
-  await context.env.EGMT_ACTIVIT.put(key, JSON.stringify(schedule));
+  await Promise.all([
+    context.env.EGMT_ACTIVIT.put(key, JSON.stringify(schedule)),
+    bumpSyncVersion(context.env.EGMT_ACTIVIT),
+  ]);
 
   return jsonResponse({ schedule } satisfies DowntimeScheduleResponse, 200);
 };

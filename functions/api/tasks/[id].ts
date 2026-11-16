@@ -5,7 +5,7 @@ import type {
   DeleteResponse,
 } from "../../../src/shared/types";
 import { errorResponse, jsonResponse, parseJsonBody } from "../_lib/http";
-import { type Env, KV_KEYS } from "../_lib/kv";
+import { bumpSyncVersion, type Env, KV_KEYS } from "../_lib/kv";
 import { readDailyTasks, validateUpdateDailyTask } from "./index";
 
 function extractId(raw: string | string[] | undefined): string | null {
@@ -68,7 +68,10 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   };
 
   tasks[idx] = updated;
-  await context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks));
+  await Promise.all([
+    context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks)),
+    bumpSyncVersion(context.env.EGMT_ACTIVIT),
+  ]);
 
   const response: DailyTaskResponse = { task: updated };
   return jsonResponse(response, 200);
@@ -87,7 +90,10 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   }
 
   tasks.splice(idx, 1);
-  await context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks));
+  await Promise.all([
+    context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks)),
+    bumpSyncVersion(context.env.EGMT_ACTIVIT),
+  ]);
 
   const response: DeleteResponse = { deleted: true, id };
   return jsonResponse(response, 200);

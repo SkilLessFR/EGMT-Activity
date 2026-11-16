@@ -19,6 +19,7 @@ import {
   updateScheduledItem,
 } from "../api/client";
 import { computeScheduledMaintenanceStatus } from "../domain/scheduledMaintenance";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
 import {
   formatBucharestDateTime,
   formatDisplayDate,
@@ -135,23 +136,31 @@ export function ScheduledMaintenanceView({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const data = await fetchScheduledMaintenance();
       setItems(data.items);
       setLogs(data.logs);
     } catch (err) {
-      setError(getErrorMessage(err));
+      if (!silent) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useRealtimeSync(
+    useCallback(() => {
+      void loadData(true);
+    }, [loadData])
+  );
 
   const rosterEmployees = useMemo(() => {
     if (!roster) return [];

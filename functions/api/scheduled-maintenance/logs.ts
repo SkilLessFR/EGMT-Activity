@@ -10,7 +10,7 @@ import {
   jsonResponse,
   parseJsonBody,
 } from "../_lib/http";
-import { type Env, KV_KEYS } from "../_lib/kv";
+import { bumpSyncVersion, type Env, KV_KEYS } from "../_lib/kv";
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const parsed = await parseJsonBody<Record<string, unknown>>(context.request);
@@ -74,7 +74,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const nextLogs = [log, ...existingLogs].sort((a, b) =>
     b.changedAt.localeCompare(a.changedAt)
   );
-  await kv.put(KV_KEYS.scheduledLogs, JSON.stringify(nextLogs));
+  await Promise.all([
+    kv.put(KV_KEYS.scheduledLogs, JSON.stringify(nextLogs)),
+    bumpSyncVersion(kv),
+  ]);
 
   return jsonResponse({ log }, 201);
 };
@@ -97,6 +100,9 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     return errorResponse("Scheduled maintenance log not found", 404);
   }
 
-  await kv.put(KV_KEYS.scheduledLogs, JSON.stringify(next));
+  await Promise.all([
+    kv.put(KV_KEYS.scheduledLogs, JSON.stringify(next)),
+    bumpSyncVersion(kv),
+  ]);
   return jsonResponse({ deleted: true, id: id.trim() }, 200);
 };

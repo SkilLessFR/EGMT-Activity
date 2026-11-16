@@ -15,6 +15,7 @@ import {
   parseJsonBody,
 } from "../_lib/http";
 import {
+  bumpSyncVersion,
   commentsMonthKey,
   type Env,
   getMonthComments,
@@ -141,7 +142,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   };
 
   const next = [...existing, comment];
-  await kv.put(commentsMonthKey(monthKey), JSON.stringify(next));
+  await Promise.all([
+    kv.put(commentsMonthKey(monthKey), JSON.stringify(next)),
+    bumpSyncVersion(kv),
+  ]);
 
   const response: CreateCommentResponse = { comment };
   return jsonResponse(response, 201);
@@ -161,7 +165,10 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   if (idParam) {
     const existing = await getMonthComments(kv, monthKey);
     const next = existing.filter((c) => c.id !== idParam);
-    await kv.put(commentsMonthKey(monthKey), JSON.stringify(next));
+    await Promise.all([
+    kv.put(commentsMonthKey(monthKey), JSON.stringify(next)),
+    bumpSyncVersion(kv),
+  ]);
     return jsonResponse({ deleted: true, count: existing.length - next.length }, 200);
   }
 

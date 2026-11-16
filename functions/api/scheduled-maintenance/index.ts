@@ -14,7 +14,7 @@ import {
   jsonResponse,
   parseJsonBody,
 } from "../_lib/http";
-import { type Env, KV_KEYS } from "../_lib/kv";
+import { bumpSyncVersion, type Env, KV_KEYS } from "../_lib/kv";
 
 async function loadItems(kv: KVNamespace): Promise<ScheduledMaintenanceItem[]> {
   const existing = await kv.get<ScheduledMaintenanceItem[]>(KV_KEYS.scheduledItems, "json");
@@ -97,7 +97,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     updatedAt: now,
   };
 
-  await kv.put(KV_KEYS.scheduledItems, JSON.stringify([...items, item]));
+  await Promise.all([
+    kv.put(KV_KEYS.scheduledItems, JSON.stringify([...items, item])),
+    bumpSyncVersion(kv),
+  ]);
   return jsonResponse({ item }, 201);
 };
 
@@ -147,7 +150,10 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
 
   const next = [...items];
   next[index] = updated;
-  await kv.put(KV_KEYS.scheduledItems, JSON.stringify(next));
+  await Promise.all([
+    kv.put(KV_KEYS.scheduledItems, JSON.stringify(next)),
+    bumpSyncVersion(kv),
+  ]);
   return jsonResponse({ item: updated }, 200);
 };
 
@@ -165,6 +171,9 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     return errorResponse("Scheduled maintenance item not found", 404);
   }
 
-  await kv.put(KV_KEYS.scheduledItems, JSON.stringify(next));
+  await Promise.all([
+    kv.put(KV_KEYS.scheduledItems, JSON.stringify(next)),
+    bumpSyncVersion(kv),
+  ]);
   return jsonResponse({ deleted: true, id }, 200);
 };

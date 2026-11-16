@@ -10,7 +10,12 @@ export const KV_KEYS = {
   maintenanceTasks: "config:maintenance-tasks",
   scheduledItems: "config:scheduled-maintenance-items",
   scheduledLogs: "log:scheduled-maintenance-changes",
+  syncVersion: "sync:version",
 } as const;
+
+export async function bumpSyncVersion(kv: KVNamespace): Promise<void> {
+  await kv.put(KV_KEYS.syncVersion, String(Date.now()));
+}
 
 export function rosterKey(monthKey: string): string {
   return `roster:${monthKey}`;

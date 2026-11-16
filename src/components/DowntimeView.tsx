@@ -35,6 +35,7 @@ import {
   parseDowntimeWorkbook,
   type ParsedDowntimeWorkbook,
 } from "../domain/downtimeImporter";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
 import {
   formatBucharestDateTime,
   formatDisplayDate,
@@ -577,9 +578,11 @@ export function DowntimeView({
   const [editingPhaseTeam, setEditingPhaseTeam] =
     useState<DowntimePhase | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [scheduleRes, completionsRes] = await Promise.all([
         fetchDowntimeSchedule(selectedMonth),
@@ -602,6 +605,12 @@ export function DowntimeView({
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useRealtimeSync(
+    useCallback(() => {
+      void loadData(true);
+    }, [loadData])
+  );
 
   // Reset filters when switching months
   useEffect(() => {

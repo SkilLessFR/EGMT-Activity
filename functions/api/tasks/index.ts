@@ -16,7 +16,7 @@ import {
   jsonResponse,
   parseJsonBody,
 } from "../_lib/http";
-import { type Env, KV_KEYS } from "../_lib/kv";
+import { bumpSyncVersion, type Env, KV_KEYS } from "../_lib/kv";
 
 export function validateSchedule(
   schedule: unknown,
@@ -263,7 +263,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const tasks = await readDailyTasks(context.env.EGMT_ACTIVIT);
   tasks.push(newTask);
-  await context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks));
+  await Promise.all([
+    context.env.EGMT_ACTIVIT.put(KV_KEYS.dailyTasks, JSON.stringify(tasks)),
+    bumpSyncVersion(context.env.EGMT_ACTIVIT),
+  ]);
 
   const response: DailyTaskResponse = { task: newTask };
   return jsonResponse(response, 201);

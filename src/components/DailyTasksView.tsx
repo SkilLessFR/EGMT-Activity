@@ -40,6 +40,7 @@ import {
   inferDailyTaskCategory,
 } from "../domain/dailySchedule";
 import { generateScheduledDailyOccurrences } from "../domain/scheduledMaintenance";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
 import {
   formatBucharestDateTime,
   formatDisplayDate,
@@ -963,9 +964,11 @@ export function DailyTasksView({
   const prevMonthKey = prevDate.slice(0, 7);
   const shiftWindow = useMemo(() => getCurrentShiftWindow(nowParts.time), [nowParts.time]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const needsPrevCompletions = shiftWindow.nightHalf === "second";
       const [
@@ -1018,6 +1021,12 @@ export function DailyTasksView({
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useRealtimeSync(
+    useCallback(() => {
+      void loadData(true);
+    }, [loadData])
+  );
 
   const currentRoster = rosterCache[currentMonthKey] ?? null;
   const previousRoster =
