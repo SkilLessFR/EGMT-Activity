@@ -161,11 +161,12 @@ export function Time24Input({
 
   const [hourText, setHourText] = useState(propH);
   const [minText, setMinText] = useState(propM);
+  const focusedRef = useRef<"hour" | "min" | null>(null);
   const minRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setHourText(propH);
-    setMinText(propM);
+    if (focusedRef.current !== "hour") setHourText(propH);
+    if (focusedRef.current !== "min") setMinText(propM);
   }, [propH, propM]);
 
   const commit = (hStr: string, mStr: string) => {
@@ -188,7 +189,12 @@ export function Time24Input({
         maxLength={2}
         value={hourText}
         aria-label={`${ariaLabel} hour`}
-        onFocus={(e) => e.target.select()}
+        onFocus={(e) => {
+          focusedRef.current = "hour";
+          e.target.select();
+        }}
+        onMouseUp={(e) => e.preventDefault()}
+        onClick={(e) => e.currentTarget.select()}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
           setHourText(digits);
@@ -200,7 +206,10 @@ export function Time24Input({
             minRef.current?.select();
           }
         }}
-        onBlur={() => commit(hourText, minText)}
+        onBlur={() => {
+          focusedRef.current = null;
+          commit(hourText, minText);
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowUp") {
             e.preventDefault();
@@ -222,7 +231,12 @@ export function Time24Input({
         maxLength={2}
         value={minText}
         aria-label={`${ariaLabel} minute`}
-        onFocus={(e) => e.target.select()}
+        onFocus={(e) => {
+          focusedRef.current = "min";
+          e.target.select();
+        }}
+        onMouseUp={(e) => e.preventDefault()}
+        onClick={(e) => e.currentTarget.select()}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
           setMinText(digits);
@@ -232,7 +246,10 @@ export function Time24Input({
             onChange(`${propH}:${clampedM}`);
           }
         }}
-        onBlur={() => commit(hourText, minText)}
+        onBlur={() => {
+          focusedRef.current = null;
+          commit(hourText, minText);
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowUp") {
             e.preventDefault();
