@@ -1116,6 +1116,21 @@ export function DailyTasksView({
       ),
     [dueUntilTasks, nowParts.date, nowParts.time]
   );
+  const dueUntilDeadlines = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          dueUntilTasks
+            .map((o) => o.dueUntil)
+            .filter((v): v is string => Boolean(v))
+        )
+      ),
+    [dueUntilTasks]
+  );
+  const dueUntilSectionTitle =
+    dueUntilDeadlines.length > 0
+      ? `Due Until ${dueUntilDeadlines.join(", ")}`
+      : "Due Until";
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
   const filteredManageTasks = useMemo(
     () =>
@@ -1474,7 +1489,7 @@ export function DailyTasksView({
                   <span className="font-mono tabular-nums text-zinc-200">
                     {dueUntilTasks.length}
                   </span>{" "}
-                  due until
+                  due until {dueUntilDeadlines.join(", ")}
                 </span>
               </>
             )}
@@ -1591,7 +1606,7 @@ export function DailyTasksView({
           {renderSection("Overdue", grouped.overdue, "red")}
           {renderSection("Due Now", dueNowStrict, "amber")}
           {renderSection(
-            "Due Until",
+            dueUntilSectionTitle,
             dueUntilTasks,
             dueUntilHasUrgent ? "amber" : "emerald"
           )}
