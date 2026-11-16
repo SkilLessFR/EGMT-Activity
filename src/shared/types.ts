@@ -12,6 +12,7 @@ export interface DailyTask {
   id: string;
   title: string;
   description?: string;
+  category?: string;
   targetShift: TargetShift;
   schedule: TaskSchedule;
   times: string[]; // HH:MM (24h)
@@ -59,6 +60,7 @@ export interface DailyOccurrence {
   taskId: string;
   taskTitle: string;
   taskDescription?: string;
+  category?: string;
   targetShift: TargetShift;
   scheduledDate: string; // YYYY-MM-DD
   scheduledTime: string; // HH:MM
@@ -126,6 +128,7 @@ export interface TasksListResponse {
 export interface CreateDailyTaskRequest {
   title: string;
   description?: string;
+  category?: string;
   targetShift: TargetShift;
   schedule: TaskSchedule;
   times: string[];
@@ -133,8 +136,11 @@ export interface CreateDailyTaskRequest {
   enabled?: boolean;
 }
 
-export type UpdateDailyTaskRequest = Partial<Omit<CreateDailyTaskRequest, "dueUntil">> & {
+export type UpdateDailyTaskRequest = Partial<
+  Omit<CreateDailyTaskRequest, "dueUntil" | "category">
+> & {
   dueUntil?: string | null;
+  category?: string | null;
 };
 
 export interface DailyTaskResponse {

@@ -268,6 +268,27 @@ export function computeDailyOccurrenceStatus(params: {
   return "overdue";
 }
 
+export const DAILY_TASK_CATEGORIES = [
+  "Shuffle Machine Cleaning",
+  "Ball Change",
+  "Dice Change",
+  "Compresoare",
+  "General",
+] as const;
+
+export function inferDailyTaskCategory(
+  title: string,
+  explicitCategory?: string
+): string {
+  const trimmed = explicitCategory?.trim();
+  if (trimmed) return trimmed;
+  if (/shuffle/i.test(title)) return "Shuffle Machine Cleaning";
+  if (/ball\s*change/i.test(title)) return "Ball Change";
+  if (/dice\s*change/i.test(title)) return "Dice Change";
+  if (/compresoare/i.test(title)) return "Compresoare";
+  return "General";
+}
+
 /**
  * Generates sorted DailyOccurrence[] for a selected YYYY-MM-DD date.
  */
@@ -339,6 +360,7 @@ export function generateDailyOccurrences(params: {
         taskId: task.id,
         taskTitle: task.title,
         taskDescription: task.description,
+        category: inferDailyTaskCategory(task.title, task.category),
         targetShift: task.targetShift,
         scheduledDate: selectedDate,
         scheduledTime,

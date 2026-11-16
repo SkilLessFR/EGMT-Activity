@@ -29,11 +29,13 @@ import {
 } from "../api/client";
 import { compressImageToDataUrl } from "../utils/image";
 import {
+  DAILY_TASK_CATEGORIES,
   filterOccurrencesForCurrentShift,
   generateDailyOccurrences,
   getCurrentShiftWindow,
   getShiftStartTime,
   groupDailyOccurrences,
+  inferDailyTaskCategory,
 } from "../domain/dailySchedule";
 import {
   formatBucharestDateTime,
@@ -105,6 +107,7 @@ function TaskFormModal({
   const { showToast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
   const [targetShift, setTargetShift] = useState<TargetShift>("M");
   const [scheduleType, setScheduleType] = useState<"daily" | "weekly" | "interval" | "once">(
     "daily"
@@ -129,6 +132,7 @@ function TaskFormModal({
     if (editingTask) {
       setTitle(editingTask.title);
       setDescription(editingTask.description ?? "");
+      setCategory(editingTask.category ?? "");
       setTargetShift(editingTask.targetShift);
       setScheduleType(editingTask.schedule.type);
       setOnceDate(
@@ -154,6 +158,7 @@ function TaskFormModal({
     } else {
       setTitle("");
       setDescription("");
+      setCategory("");
       setTargetShift("M");
       setScheduleType("daily");
       setOnceDate(defaultDate);
@@ -249,6 +254,7 @@ function TaskFormModal({
       const basePayload = {
         title: title.trim(),
         description: description.trim() || undefined,
+        category: category.trim() || undefined,
         targetShift,
         schedule,
         times: cleanedTimes,
@@ -257,6 +263,7 @@ function TaskFormModal({
       if (editingTask) {
         await updateDailyTask(editingTask.id, {
           ...basePayload,
+          category: category.trim() || null,
           dueUntil: timeMode === "shiftWindow" ? dueUntil : null,
         });
         showToast({ tone: "success", title: "Task updated", description: basePayload.title });
@@ -334,6 +341,39 @@ function TaskFormModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Checklist notes or acceptance criteria..."
+              className={inputClassName}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+              Category <span className="text-zinc-500">(optional)</span>
+            </label>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {DAILY_TASK_CATEGORIES.map((cat) => {
+                const active =
+                  category.trim().toLowerCase() === cat.toLowerCase();
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(active ? "" : cat)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                      active
+                        ? "btn-primary-theme border-transparent font-semibold"
+                        : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.2]"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Or type custom category (auto-detected if empty)..."
               className={inputClassName}
             />
           </div>
@@ -865,6 +905,7 @@ export function DailyTasksView({
   const [shiftFilter, setShiftFilter] = useState<"M" | "A" | "N">(
     () => getCurrentShiftWindow(getBucharestNowParts().time).primaryShift
   );
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1014,7 +1055,27 @@ export function DailyTasksView({
     nowParts.date,
   ]);
 
-  const grouped = useMemo(() => groupDailyOccurrences(occurrences), [occurrences]);
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const occ of occurrences) {
+      set.add(occ.category ?? inferDailyTaskCategory(occ.taskTitle));
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [occurrences]);
+
+  const filteredOccurrences = useMemo(() => {
+    if (categoryFilter === "ALL") return occurrences;
+    return occurrences.filter(
+      (occ) =>
+        (occ.category ?? inferDailyTaskCategory(occ.taskTitle)) ===
+        categoryFilter
+    );
+  }, [occurrences, categoryFilter]);
+
+  const grouped = useMemo(
+    () => groupDailyOccurrences(filteredOccurrences),
+    [filteredOccurrences]
+  );
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
   const filteredManageTasks = useMemo(
     () =>
@@ -1134,11 +1195,23 @@ export function DailyTasksView({
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             {occ.status === "overdue" && <StatusDot tone="red">Overdue</StatusDot>}
-            {occ.status === "dueNow" && <StatusDot tone="amber">Due Now</StatusDot>}
+            {occ.status === "dueNow" && (
+              <StatusDot tone="amber">
+                {occ.dueUntil ? `Due until ${occ.dueUntil}` : "Due Now"}
+              </StatusDot>
+            )}
             {occ.status === "upcoming" && <StatusDot tone="neutral">Upcoming</StatusDot>}
             {isCompleted && <StatusDot tone="emerald">Completed</StatusDot>}
             <span className="text-zinc-600">·</span>
             <span className="text-zinc-500">{shiftShort}</span>
+            {occ.category && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-zinc-300">
+                  {occ.category}
+                </span>
+              </>
+            )}
           </div>
 
           {isCompleted && occ.completion ? (
@@ -1387,6 +1460,37 @@ export function DailyTasksView({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Category Filter Pills */}
+      {!loading && availableCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("ALL")}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+              categoryFilter === "ALL"
+                ? "btn-primary-theme font-semibold"
+                : "border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            All Categories
+          </button>
+          {availableCategories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                categoryFilter === cat
+                  ? "btn-primary-theme font-semibold"
+                  : "border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       )}
 

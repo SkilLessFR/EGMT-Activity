@@ -125,12 +125,17 @@ export function validateCreateDailyTask(body: Record<string, unknown>): {
     typeof body.description === "string" && body.description.trim().length > 0
       ? body.description.trim()
       : undefined;
+  const trimmedCategory =
+    typeof body.category === "string" && body.category.trim().length > 0
+      ? body.category.trim()
+      : undefined;
 
   return {
     errors: [],
     data: {
       title: (body.title as string).trim(),
       ...(trimmedDesc !== undefined ? { description: trimmedDesc } : {}),
+      ...(trimmedCategory !== undefined ? { category: trimmedCategory } : {}),
       targetShift: body.targetShift,
       schedule,
       times,
@@ -159,6 +164,15 @@ export function validateUpdateDailyTask(body: Record<string, unknown>): {
       errors.push("description must be a string");
     } else {
       data.description = body.description.trim();
+    }
+  }
+  if (body.category !== undefined) {
+    if (body.category === null || body.category === "") {
+      data.category = null;
+    } else if (typeof body.category !== "string") {
+      errors.push("category must be a string or null");
+    } else {
+      data.category = body.category.trim();
     }
   }
   if (body.targetShift !== undefined) {
@@ -232,6 +246,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     title: validation.data.title,
     ...(validation.data.description !== undefined
       ? { description: validation.data.description }
+      : {}),
+    ...(validation.data.category !== undefined
+      ? { category: validation.data.category }
       : {}),
     targetShift: validation.data.targetShift,
     schedule: validation.data.schedule,

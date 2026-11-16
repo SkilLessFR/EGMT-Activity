@@ -46,6 +46,13 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         ? { description: updates.description }
         : { description: undefined }
       : {}),
+    ...(updates.category === null
+      ? { category: undefined }
+      : updates.category !== undefined
+        ? updates.category.length > 0
+          ? { category: updates.category }
+          : { category: undefined }
+        : {}),
     ...(updates.targetShift !== undefined
       ? { targetShift: updates.targetShift }
       : {}),
