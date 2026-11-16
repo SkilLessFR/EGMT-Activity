@@ -734,7 +734,7 @@ function TaskCommentsModal({
         icon={<MessageSquare className="h-4 w-4" />}
         maxWidthClass="max-w-lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           {comments.length === 0 ? (
             <p className="rounded-lg border border-dashed border-white/[0.08] py-6 text-center text-xs text-zinc-500">
               No comments yet. Leave a note or attach a photo below.
@@ -1455,14 +1455,16 @@ export function DailyTasksView({
         )}
 
         {!isCollapsed && (
-          <div className="border-t border-white/[0.06]">{items.map(renderOccurrenceRow)}</div>
+          <div className={hideHeader ? "" : "border-t border-white/[0.06]"}>
+            {items.map(renderOccurrenceRow)}
+          </div>
         )}
       </section>
     );
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-2.5 sm:space-y-4">
       {/* Page Header & Controls */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
@@ -1528,7 +1530,7 @@ export function DailyTasksView({
 
       {/* Inline Status Summary + Shift Filter */}
       {!loading && !error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-xs text-zinc-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2 text-xs text-zinc-500">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>
               <span className="font-mono tabular-nums text-zinc-200">{pendingCount}</span> pending
@@ -1633,7 +1635,7 @@ export function DailyTasksView({
           }
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {renderSection("Overdue", grouped.overdue, "red")}
           {renderSection("Due Now", dueNowStrict, "amber")}
           {renderSection(
