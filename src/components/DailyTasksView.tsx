@@ -1421,35 +1421,38 @@ export function DailyTasksView({
     title: string,
     items: DailyOccurrence[],
     tone: "red" | "amber" | "neutral" | "emerald",
-    collapsible = false
+    collapsible = false,
+    hideHeader = false
   ) => {
     if (items.length === 0) return null;
     const isCollapsed = collapsible && completedCollapsed;
 
     return (
       <section className="space-y-1">
-        <div className="flex items-center justify-between pb-1">
-          <button
-            type="button"
-            disabled={!collapsible}
-            onClick={() => collapsible && setCompletedCollapsed((p) => !p)}
-            className={`inline-flex items-center gap-2 text-xs font-medium text-zinc-300 ${
-              collapsible ? "cursor-pointer hover:text-zinc-100" : "cursor-default"
-            }`}
-          >
-            <StatusDot tone={tone} className="text-zinc-300">
-              <span>{title}</span>
-            </StatusDot>
-            <span className="font-mono tabular-nums text-zinc-500">{items.length}</span>
-            {collapsible && (
-              <ChevronDown
-                className={`h-3.5 w-3.5 text-zinc-500 transition-transform ${
-                  isCollapsed ? "-rotate-90" : ""
-                }`}
-              />
-            )}
-          </button>
-        </div>
+        {!hideHeader && (
+          <div className="flex items-center justify-between pb-1">
+            <button
+              type="button"
+              disabled={!collapsible}
+              onClick={() => collapsible && setCompletedCollapsed((p) => !p)}
+              className={`inline-flex items-center gap-2 text-xs font-medium text-zinc-300 ${
+                collapsible ? "cursor-pointer hover:text-zinc-100" : "cursor-default"
+              }`}
+            >
+              <StatusDot tone={tone} className="text-zinc-300">
+                <span>{title}</span>
+              </StatusDot>
+              <span className="font-mono tabular-nums text-zinc-500">{items.length}</span>
+              {collapsible && (
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-zinc-500 transition-transform ${
+                    isCollapsed ? "-rotate-90" : ""
+                  }`}
+                />
+              )}
+            </button>
+          </div>
+        )}
 
         {!isCollapsed && (
           <div className="border-t border-white/[0.06]">{items.map(renderOccurrenceRow)}</div>
@@ -1636,7 +1639,9 @@ export function DailyTasksView({
           {renderSection(
             dueUntilSectionTitle,
             dueUntilTasks,
-            dueUntilHasUrgent ? "amber" : "emerald"
+            dueUntilHasUrgent ? "amber" : "emerald",
+            false,
+            true
           )}
           {renderSection("Upcoming", grouped.upcoming, "neutral")}
           {renderSection("Completed", grouped.completed, "emerald", true)}
