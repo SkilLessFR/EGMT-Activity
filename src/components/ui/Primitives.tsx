@@ -142,3 +142,58 @@ export function SkeletonCard() {
     </div>
   );
 }
+
+const HOURS_24 = Array.from({ length: 24 }, (_, i) =>
+  String(i).padStart(2, "0")
+);
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) =>
+  String(i).padStart(2, "0")
+);
+
+export function Time24Input({
+  value,
+  onChange,
+  ariaLabel = "Time (24-hour)",
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  ariaLabel?: string;
+}) {
+  const [rawH, rawM] = (value || "08:00").split(":");
+  const hour = HOURS_24.includes(rawH) ? rawH : "08";
+  const minute = MINUTES_60.includes(rawM) ? rawM : "00";
+
+  return (
+    <div
+      className="inline-flex items-center rounded-lg border border-white/[0.08] bg-surface-input px-2 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus-within:border-white/25"
+      role="group"
+      aria-label={ariaLabel}
+    >
+      <select
+        value={hour}
+        onChange={(e) => onChange(`${e.target.value}:${minute}`)}
+        aria-label={`${ariaLabel} hour`}
+        className="cursor-pointer bg-transparent px-1 py-0.5 text-zinc-100 focus:outline-none"
+      >
+        {HOURS_24.map((h) => (
+          <option key={h} value={h} className="bg-surface-input text-zinc-100">
+            {h}
+          </option>
+        ))}
+      </select>
+      <span className="px-0.5 text-zinc-400">:</span>
+      <select
+        value={minute}
+        onChange={(e) => onChange(`${hour}:${e.target.value}`)}
+        aria-label={`${ariaLabel} minute`}
+        className="cursor-pointer bg-transparent px-1 py-0.5 text-zinc-100 focus:outline-none"
+      >
+        {MINUTES_60.map((m) => (
+          <option key={m} value={m} className="bg-surface-input text-zinc-100">
+            {m}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}

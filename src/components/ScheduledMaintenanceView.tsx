@@ -35,6 +35,7 @@ import {
   EmptyState,
   StatusBadge,
   StatusDot,
+  Time24Input,
   inputClassName,
   selectClassName,
 } from "./ui/Primitives";
@@ -601,15 +602,30 @@ export function ScheduledMaintenanceView({
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-300">
-              Date & Time
+              Date & Time (24-hour)
             </label>
-            <input
-              type="datetime-local"
-              value={changedAtInput}
-              onChange={(e) => setChangedAtInput(e.target.value)}
-              className={inputClassName}
-              required
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={changedAtInput.slice(0, 10)}
+                onChange={(e) => {
+                  const timePart = changedAtInput.slice(11, 16) || "00:00";
+                  setChangedAtInput(`${e.target.value}T${timePart}`);
+                }}
+                className={`${inputClassName} w-auto flex-1`}
+                required
+              />
+              <Time24Input
+                value={changedAtInput.slice(11, 16) || "00:00"}
+                onChange={(nextTime) => {
+                  const datePart =
+                    changedAtInput.slice(0, 10) ||
+                    toLocalDateTimeInputValue().slice(0, 10);
+                  setChangedAtInput(`${datePart}T${nextTime}`);
+                }}
+                ariaLabel="Change time"
+              />
+            </div>
           </div>
 
           <div>

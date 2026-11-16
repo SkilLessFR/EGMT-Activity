@@ -57,6 +57,7 @@ import {
   EmptyState,
   SkeletonCard,
   StatusDot,
+  Time24Input,
   inputClassName,
   selectClassName,
 } from "./ui/Primitives";
@@ -479,22 +480,17 @@ function TaskFormModal({
             {timeMode === "specific" ? (
               <div className="flex flex-wrap items-center gap-2">
                 {times.map((t, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-surface-input pr-1.5"
-                  >
-                    <input
-                      type="time"
+                  <div key={index} className="inline-flex items-center gap-1">
+                    <Time24Input
                       value={t}
-                      onChange={(e) => updateTimeAt(index, e.target.value)}
-                      aria-label={`Scheduled time ${index + 1}`}
-                      className="rounded-lg bg-transparent px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:outline-none"
+                      onChange={(next) => updateTimeAt(index, next)}
+                      ariaLabel={`Scheduled time ${index + 1}`}
                     />
                     {times.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeTimeAt(index)}
-                        className="rounded p-1 text-zinc-500 transition hover:text-red-400"
+                        className="rounded p-1.5 text-zinc-500 transition hover:text-red-400"
                         aria-label={`Remove time ${t}`}
                       >
                         <X className="h-3.5 w-3.5" />
@@ -514,12 +510,10 @@ function TaskFormModal({
                     {getShiftStartTime(targetShift)}
                   </span>
                   <span className="text-xs text-zinc-500">until</span>
-                  <input
-                    type="time"
+                  <Time24Input
                     value={dueUntil}
-                    onChange={(e) => setDueUntil(e.target.value)}
-                    aria-label="Due until time"
-                    className="rounded-lg border border-white/[0.08] bg-surface-input px-3 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus:border-white/25 focus:outline-none"
+                    onChange={setDueUntil}
+                    ariaLabel="Due until time"
                   />
                 </div>
                 <p className="text-[11px] text-zinc-500">
