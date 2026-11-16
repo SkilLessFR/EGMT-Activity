@@ -78,3 +78,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   return jsonResponse({ log }, 201);
 };
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const url = new URL(context.request.url);
+  const id = url.searchParams.get("id");
+  if (!isNonEmptyString(id)) {
+    return errorResponse("id query parameter is required", 400);
+  }
+
+  const kv = context.env.EGMT_ACTIVIT;
+  const logsRaw = await kv.get<ScheduledMaintenanceLog[]>(
+    KV_KEYS.scheduledLogs,
+    "json"
+  );
+  const existing = logsRaw ?? [];
+  const next = existing.filter((l) => l.id !== id.trim());
+  if (next.length === existing.length) {
+    return errorResponse("Scheduled maintenance log not found", 404);
+  }
+
+  await kv.put(KV_KEYS.scheduledLogs, JSON.stringify(next));
+  return jsonResponse({ deleted: true, id: id.trim() }, 200);
+};
