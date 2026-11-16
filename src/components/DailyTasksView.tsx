@@ -1397,14 +1397,14 @@ export function DailyTasksView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header & Controls */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
             Daily Tasks
           </h1>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 hidden text-xs text-zinc-500 sm:block">
             One technician completion marks an occurrence done for the shift.
           </p>
         </div>
