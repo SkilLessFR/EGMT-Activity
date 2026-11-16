@@ -1209,10 +1209,6 @@ export function DailyTasksView({
 
   const renderOccurrenceRow = (occ: DailyOccurrence) => {
     const isCompleted = occ.status === "completed" && occ.completion !== null;
-
-    const shiftShort =
-      TARGET_SHIFT_OPTIONS.find((s) => s.value === occ.targetShift)?.short ??
-      `Shift ${occ.targetShift}`;
     const occComments = commentsByOccurrence.get(occ.occurrenceId) ?? [];
 
     return (
@@ -1266,8 +1262,6 @@ export function DailyTasksView({
               ))}
             {occ.status === "upcoming" && <StatusDot tone="neutral">Upcoming</StatusDot>}
             {isCompleted && <StatusDot tone="emerald">Completed</StatusDot>}
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-500">{shiftShort}</span>
             {occ.category && (
               <>
                 <span className="text-zinc-600">·</span>
