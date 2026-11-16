@@ -186,3 +186,32 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const response: CreateCompletionResponse = { completion };
   return jsonResponse(response, 201);
 };
+
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const url = new URL(context.request.url);
+  const month = url.searchParams.get("month");
+  const id = url.searchParams.get("id");
+
+  if (!isValidMonthKey(month)) {
+    return errorResponse("Invalid month parameter; expected YYYY-MM", 400);
+  }
+  if (!isNonEmptyString(id)) {
+    return errorResponse("id query parameter is required", 400);
+  }
+
+  const kv = context.env.EGMT_ACTIVIT;
+  const monthMap = await getMonthCompletionsMap(kv, month);
+  const targetId = id.trim();
+  const entry = Object.entries(monthMap).find(([, c]) => c.id === targetId);
+  if (!entry) {
+    return errorResponse("Completion not found", 404);
+  }
+
+  delete monthMap[entry[0]];
+  await Promise.all([
+    kv.put(completionsMonthKey(month), JSON.stringify(monthMap)),
+    bumpSyncVersion(kv),
+  ]);
+
+  return jsonResponse({ deleted: true, id: targetId }, 200);
+};
