@@ -54,7 +54,7 @@ export default function App() {
           onOpenRosterModal={() => setRosterModalOpen(true)}
         />
 
-        <main className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 md:pb-12">
+        <main className="mx-auto max-w-6xl px-4 pb-24 pt-3 sm:px-6 sm:pt-5 md:pb-12">
           {activeSection === "daily" && (
             <DailyTasksView
               rosterCache={rosterCache}
