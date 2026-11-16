@@ -1082,10 +1082,10 @@ export function DowntimeView({
                         const isDone = taskCompletions.length > 0;
 
                         return (
-                          <article key={task.id} className="space-y-3 p-4">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <div className="flex flex-wrap items-center gap-2">
+                          <article key={task.id} className="space-y-1.5 p-2.5 sm:p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-1.5">
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <h3 className="text-sm font-semibold text-zinc-100">
                                     Studio {task.studio}
                                   </h3>
@@ -1144,8 +1144,8 @@ export function DowntimeView({
                             </div>
 
                             {/* People Assignment & Multi-Person Completion */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex flex-wrap items-center gap-1">
                                 {allTaskPeople.map((person) => {
                                   const comp = completedByMap.get(
                                     person.toLowerCase()
@@ -1155,7 +1155,7 @@ export function DowntimeView({
                                       <span
                                         key={person}
                                         title={`Completed by ${comp.completedBy} at ${formatBucharestDateTime(comp.completedAt)}`}
-                                        className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300"
+                                        className="inline-flex min-h-[28px] items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300"
                                       >
                                         <Check className="h-3.5 w-3.5 text-emerald-400" />
                                         <span>{comp.completedBy}</span>
@@ -1180,7 +1180,7 @@ export function DowntimeView({
                                       onClick={() =>
                                         togglePersonSelection(task.id, person)
                                       }
-                                      className={`inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                                      className={`inline-flex min-h-[28px] items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition ${
                                         isChecked
                                           ? "btn-primary-theme border-transparent"
                                           : "border-white/[0.1] bg-white/[0.03] text-zinc-300 hover:border-white/[0.25] hover:text-zinc-100"

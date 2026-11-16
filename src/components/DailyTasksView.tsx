@@ -1218,24 +1218,24 @@ export function DailyTasksView({
     return (
       <article
         key={occ.occurrenceId}
-        className="flex gap-3 border-b border-white/[0.06] py-3.5 last:border-b-0 sm:gap-4"
+        className="flex gap-2.5 border-b border-white/[0.06] py-2 last:border-b-0"
       >
         {/* Left Time Column */}
         <div
-          className={`w-14 shrink-0 pt-0.5 font-mono text-sm tabular-nums ${
+          className={`w-12 shrink-0 pt-0.5 font-mono text-xs tabular-nums ${
             isCompleted ? "text-zinc-500" : "text-zinc-100"
           }`}
         >
           <div>{occ.scheduledTime}</div>
           {occ.dueUntil && (
-            <div className="text-[11px] text-zinc-500">→ {occ.dueUntil}</div>
+            <div className="text-[10px] text-zinc-500">→ {occ.dueUntil}</div>
           )}
         </div>
 
         {/* Right Content Column */}
         <div className="min-w-0 flex-1">
           <h3
-            className={`text-[15px] font-medium leading-snug ${
+            className={`text-sm font-medium leading-snug ${
               isCompleted ? "text-zinc-500 line-through" : "text-zinc-100"
             }`}
           >
@@ -1243,12 +1243,12 @@ export function DailyTasksView({
           </h3>
 
           {occ.taskDescription && (
-            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
               {occ.taskDescription}
             </p>
           )}
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
             {occ.status === "overdue" && <StatusDot tone="red">Overdue</StatusDot>}
             {occ.status === "dueNow" &&
               (occ.dueUntil ? (
@@ -1279,8 +1279,8 @@ export function DailyTasksView({
           </div>
 
           {isCompleted && occ.completion ? (
-            <div className="mt-2.5 flex items-center gap-1.5 text-xs text-emerald-300/80">
-              <Check className="h-3.5 w-3.5 shrink-0" />
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-300/80">
+              <Check className="h-3 w-3 shrink-0" />
               <span>{occ.completion.completedBy}</span>
               <span className="text-zinc-600">·</span>
               <span className="font-mono tabular-nums">
@@ -1288,9 +1288,9 @@ export function DailyTasksView({
               </span>
             </div>
           ) : (
-            <div className="mt-3">
+            <div className="mt-1.5">
               {occ.eligibleEmployees.length === 0 ? (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
                   <span>
                     {currentRoster
                       ? "No technicians scheduled on this shift at this time."
@@ -1307,30 +1307,27 @@ export function DailyTasksView({
                   )}
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap gap-2">
-                    {occ.eligibleEmployees.map((emp) => {
-                      const key = `${occ.occurrenceId}:${emp}`;
-                      const busy = submittingKey === key;
-                      return (
-                        <button
-                          key={emp}
-                          type="button"
-                          disabled={submittingKey !== null}
-                          onClick={() => void handleComplete(occ, emp)}
-                          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-zinc-200 transition hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
-                        >
-                          {busy ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5 text-zinc-500" />
-                          )}
-                          <span>{emp}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-[11px] text-zinc-600">Tap technician to complete</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {occ.eligibleEmployees.map((emp) => {
+                    const key = `${occ.occurrenceId}:${emp}`;
+                    const busy = submittingKey === key;
+                    return (
+                      <button
+                        key={emp}
+                        type="button"
+                        disabled={submittingKey !== null}
+                        onClick={() => void handleComplete(occ, emp)}
+                        className="inline-flex min-h-[30px] items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-zinc-200 transition hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+                        ) : (
+                          <Check className="h-3 w-3 text-zinc-500" />
+                        )}
+                        <span>{emp}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1343,7 +1340,7 @@ export function DailyTasksView({
             type="button"
             onClick={() => setCommentTarget(occ)}
             aria-label={`Comments for ${occ.taskTitle}`}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-white/[0.14] hover:bg-white/[0.07]"
+            className="inline-flex min-h-[30px] items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-xs font-medium text-zinc-300 transition hover:border-white/[0.14] hover:bg-white/[0.07]"
           >
             <MessageSquare className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Comments</span>
@@ -1602,7 +1599,7 @@ export function DailyTasksView({
           }
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {renderSection("Overdue", grouped.overdue, "red")}
           {renderSection("Due Now", dueNowStrict, "amber")}
           {renderSection(
