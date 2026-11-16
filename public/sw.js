@@ -1,6 +1,6 @@
 // Minimal service worker for PWA installability and static shell caching.
 // API requests (/api/*) always go directly to the network; offline completion sync is not supported.
-const CACHE_NAME = "egmt-activity-shell-v1";
+const CACHE_NAME = "egmt-activity-shell-v2";
 const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -30,8 +30,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const fetchReq =
+    request.mode === "navigate"
+      ? new Request(request, { cache: "no-store" })
+      : request;
+
   event.respondWith(
-    fetch(request)
+    fetch(fetchReq)
       .then((response) => {
         if (response.ok && url.origin === self.location.origin) {
           const clone = response.clone();
