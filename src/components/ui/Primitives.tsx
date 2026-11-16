@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export const inputClassName =
   "w-full rounded-lg border border-white/[0.08] bg-surface-input px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 transition focus:border-white/25 focus:outline-none focus:ring-4 focus:ring-white/[0.05]";
@@ -143,13 +143,6 @@ export function SkeletonCard() {
   );
 }
 
-const HOURS_24 = Array.from({ length: 24 }, (_, i) =>
-  String(i).padStart(2, "0")
-);
-const MINUTES_60 = Array.from({ length: 60 }, (_, i) =>
-  String(i).padStart(2, "0")
-);
-
 export function Time24Input({
   value,
   onChange,
@@ -159,41 +152,100 @@ export function Time24Input({
   onChange: (next: string) => void;
   ariaLabel?: string;
 }) {
+  const clamp = (num: number, max: number) =>
+    String(Math.max(0, Math.min(max, num))).padStart(2, "0");
+
   const [rawH, rawM] = (value || "08:00").split(":");
-  const hour = HOURS_24.includes(rawH) ? rawH : "08";
-  const minute = MINUTES_60.includes(rawM) ? rawM : "00";
+  const propH = /^\d{1,2}$/.test(rawH) ? clamp(Number(rawH), 23) : "08";
+  const propM = /^\d{1,2}$/.test(rawM) ? clamp(Number(rawM), 59) : "00";
+
+  const [hourText, setHourText] = useState(propH);
+  const [minText, setMinText] = useState(propM);
+  const minRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setHourText(propH);
+    setMinText(propM);
+  }, [propH, propM]);
+
+  const commit = (hStr: string, mStr: string) => {
+    const h = clamp(Number.parseInt(hStr || "0", 10) || 0, 23);
+    const m = clamp(Number.parseInt(mStr || "0", 10) || 0, 59);
+    setHourText(h);
+    setMinText(m);
+    onChange(`${h}:${m}`);
+  };
 
   return (
     <div
-      className="inline-flex items-center rounded-lg border border-white/[0.08] bg-surface-input px-2 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus-within:border-white/25"
+      className="inline-flex items-center rounded-lg border border-white/[0.08] bg-surface-input px-2.5 py-1.5 font-mono text-sm tabular-nums text-zinc-100 focus-within:border-white/25"
       role="group"
       aria-label={ariaLabel}
     >
-      <select
-        value={hour}
-        onChange={(e) => onChange(`${e.target.value}:${minute}`)}
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={hourText}
         aria-label={`${ariaLabel} hour`}
-        className="cursor-pointer bg-transparent px-1 py-0.5 text-zinc-100 focus:outline-none"
-      >
-        {HOURS_24.map((h) => (
-          <option key={h} value={h} className="bg-surface-input text-zinc-100">
-            {h}
-          </option>
-        ))}
-      </select>
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+          setHourText(digits);
+          if (digits.length === 2) {
+            const clampedH = clamp(Number.parseInt(digits, 10), 23);
+            setHourText(clampedH);
+            onChange(`${clampedH}:${propM}`);
+            minRef.current?.focus();
+            minRef.current?.select();
+          }
+        }}
+        onBlur={() => commit(hourText, minText)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const next = (Number.parseInt(hourText || "0", 10) + 1) % 24;
+            commit(String(next), minText);
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const next = (Number.parseInt(hourText || "0", 10) + 23) % 24;
+            commit(String(next), minText);
+          }
+        }}
+        className="w-6 bg-transparent text-center text-zinc-100 focus:outline-none"
+      />
       <span className="px-0.5 text-zinc-400">:</span>
-      <select
-        value={minute}
-        onChange={(e) => onChange(`${hour}:${e.target.value}`)}
+      <input
+        ref={minRef}
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={minText}
         aria-label={`${ariaLabel} minute`}
-        className="cursor-pointer bg-transparent px-1 py-0.5 text-zinc-100 focus:outline-none"
-      >
-        {MINUTES_60.map((m) => (
-          <option key={m} value={m} className="bg-surface-input text-zinc-100">
-            {m}
-          </option>
-        ))}
-      </select>
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+          setMinText(digits);
+          if (digits.length === 2) {
+            const clampedM = clamp(Number.parseInt(digits, 10), 59);
+            setMinText(clampedM);
+            onChange(`${propH}:${clampedM}`);
+          }
+        }}
+        onBlur={() => commit(hourText, minText)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const next = (Number.parseInt(minText || "0", 10) + 1) % 60;
+            commit(hourText, String(next));
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const next = (Number.parseInt(minText || "0", 10) + 59) % 60;
+            commit(hourText, String(next));
+          }
+        }}
+        className="w-6 bg-transparent text-center text-zinc-100 focus:outline-none"
+      />
     </div>
   );
 }
