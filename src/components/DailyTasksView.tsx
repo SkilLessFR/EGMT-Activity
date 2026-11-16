@@ -37,7 +37,6 @@ import {
   getCurrentShiftWindow,
   getShiftStartTime,
   groupDailyOccurrences,
-  inferDailyTaskCategory,
 } from "../domain/dailySchedule";
 import { generateScheduledDailyOccurrences } from "../domain/scheduledMaintenance";
 import {
@@ -941,7 +940,6 @@ export function DailyTasksView({
   const [shiftFilter, setShiftFilter] = useState<"M" | "A" | "N">(
     () => getCurrentShiftWindow(getBucharestNowParts().time).primaryShift
   );
-  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1137,26 +1135,9 @@ export function DailyTasksView({
     nowParts.date,
   ]);
 
-  const availableCategories = useMemo(() => {
-    const set = new Set<string>();
-    for (const occ of occurrences) {
-      set.add(occ.category ?? inferDailyTaskCategory(occ.taskTitle));
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [occurrences]);
-
-  const filteredOccurrences = useMemo(() => {
-    if (categoryFilter === "ALL") return occurrences;
-    return occurrences.filter(
-      (occ) =>
-        (occ.category ?? inferDailyTaskCategory(occ.taskTitle)) ===
-        categoryFilter
-    );
-  }, [occurrences, categoryFilter]);
-
   const grouped = useMemo(
-    () => groupDailyOccurrences(filteredOccurrences),
-    [filteredOccurrences]
+    () => groupDailyOccurrences(occurrences),
+    [occurrences]
   );
   const dueNowStrict = useMemo(
     () => grouped.dueNow.filter((o) => !o.dueUntil),
@@ -1613,37 +1594,6 @@ export function DailyTasksView({
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Category Filter Pills */}
-      {!loading && availableCategories.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("ALL")}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-              categoryFilter === "ALL"
-                ? "btn-primary-theme font-semibold"
-                : "border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            All Categories
-          </button>
-          {availableCategories.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategoryFilter(cat)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                categoryFilter === cat
-                  ? "btn-primary-theme font-semibold"
-                  : "border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
         </div>
       )}
 
