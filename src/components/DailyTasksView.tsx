@@ -880,6 +880,31 @@ function TaskCommentsModal({
   );
 }
 
+function parseHHMMToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function isDueWithinOneHour(
+  occ: DailyOccurrence,
+  nowDate: string,
+  nowTime: string
+): boolean {
+  if (!occ.dueUntil) return true;
+  const [sy, sm, sd] = occ.scheduledDate.split("-").map(Number);
+  const [ny, nm, nd] = nowDate.split("-").map(Number);
+  if (!sy || !sm || !sd || !ny || !nm || !nd) return true;
+  const dayDiff = Math.round(
+    (Date.UTC(ny, nm - 1, nd) - Date.UTC(sy, sm - 1, sd)) / 86_400_000
+  );
+  const schedMins = parseHHMMToMinutes(occ.scheduledTime);
+  const dueMins = parseHHMMToMinutes(occ.dueUntil);
+  const crossesMidnight = dueMins < schedMins;
+  const dueTotalMins = dueMins + (crossesMidnight ? 1440 : 0);
+  const nowTotalMins = dayDiff * 1440 + parseHHMMToMinutes(nowTime);
+  return dueTotalMins - nowTotalMins <= 60;
+}
+
 export function DailyTasksView({
   rosterCache,
   onRosterLoaded,
@@ -1076,6 +1101,21 @@ export function DailyTasksView({
     () => groupDailyOccurrences(filteredOccurrences),
     [filteredOccurrences]
   );
+  const dueNowStrict = useMemo(
+    () => grouped.dueNow.filter((o) => !o.dueUntil),
+    [grouped.dueNow]
+  );
+  const dueUntilTasks = useMemo(
+    () => grouped.dueNow.filter((o) => Boolean(o.dueUntil)),
+    [grouped.dueNow]
+  );
+  const dueUntilHasUrgent = useMemo(
+    () =>
+      dueUntilTasks.some((o) =>
+        isDueWithinOneHour(o, nowParts.date, nowParts.time)
+      ),
+    [dueUntilTasks, nowParts.date, nowParts.time]
+  );
   const pendingCount = grouped.overdue.length + grouped.dueNow.length + grouped.upcoming.length;
   const filteredManageTasks = useMemo(
     () =>
@@ -1195,11 +1235,20 @@ export function DailyTasksView({
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             {occ.status === "overdue" && <StatusDot tone="red">Overdue</StatusDot>}
-            {occ.status === "dueNow" && (
-              <StatusDot tone="amber">
-                {occ.dueUntil ? `Due until ${occ.dueUntil}` : "Due Now"}
-              </StatusDot>
-            )}
+            {occ.status === "dueNow" &&
+              (occ.dueUntil ? (
+                <StatusDot
+                  tone={
+                    isDueWithinOneHour(occ, nowParts.date, nowParts.time)
+                      ? "amber"
+                      : "emerald"
+                  }
+                >
+                  Due until {occ.dueUntil}
+                </StatusDot>
+              ) : (
+                <StatusDot tone="amber">Due Now</StatusDot>
+              ))}
             {occ.status === "upcoming" && <StatusDot tone="neutral">Upcoming</StatusDot>}
             {isCompleted && <StatusDot tone="emerald">Completed</StatusDot>}
             <span className="text-zinc-600">·</span>
@@ -1407,14 +1456,25 @@ export function DailyTasksView({
             <span>
               <span className="font-mono tabular-nums text-zinc-200">{pendingCount}</span> pending
             </span>
-            {grouped.dueNow.length > 0 && (
+            {dueNowStrict.length > 0 && (
               <>
                 <span className="text-zinc-600">·</span>
                 <span>
                   <span className="font-mono tabular-nums text-zinc-200">
-                    {grouped.dueNow.length}
+                    {dueNowStrict.length}
                   </span>{" "}
                   due now
+                </span>
+              </>
+            )}
+            {dueUntilTasks.length > 0 && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span>
+                  <span className="font-mono tabular-nums text-zinc-200">
+                    {dueUntilTasks.length}
+                  </span>{" "}
+                  due until
                 </span>
               </>
             )}
@@ -1529,7 +1589,12 @@ export function DailyTasksView({
       ) : (
         <div className="space-y-6">
           {renderSection("Overdue", grouped.overdue, "red")}
-          {renderSection("Due Now", grouped.dueNow, "amber")}
+          {renderSection("Due Now", dueNowStrict, "amber")}
+          {renderSection(
+            "Due Until",
+            dueUntilTasks,
+            dueUntilHasUrgent ? "amber" : "emerald"
+          )}
           {renderSection("Upcoming", grouped.upcoming, "neutral")}
           {renderSection("Completed", grouped.completed, "emerald", true)}
         </div>
