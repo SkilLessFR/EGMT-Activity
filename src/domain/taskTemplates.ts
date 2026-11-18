@@ -42,6 +42,14 @@ export const TASK_TEMPLATES: TaskTemplateOption[] = [
     category: "Mega Wheel",
     name: "Roulette Calibration",
   },
+  {
+    id: "mega-wheel-other",
+    category: "Mega Wheel",
+    name: "Other",
+    requiresComment: true,
+    commentLabel: "What was done?",
+    commentPlaceholder: "Describe the Mega Wheel work performed...",
+  },
 
   // Manual Roulette
   {
@@ -72,6 +80,14 @@ export const TASK_TEMPLATES: TaskTemplateOption[] = [
     requiresComment: true,
     commentLabel: "What changed?",
     commentPlaceholder: "Describe the setting change...",
+  },
+  {
+    id: "manual-roulette-other",
+    category: "Manual Roulette",
+    name: "Other",
+    requiresComment: true,
+    commentLabel: "What was done?",
+    commentPlaceholder: "Describe the Manual Roulette work performed...",
   },
 
   // Automatic Roulette
@@ -108,6 +124,14 @@ export const TASK_TEMPLATES: TaskTemplateOption[] = [
     requiresComment: true,
     commentLabel: "What did you change?",
     commentPlaceholder: "Describe the component that was changed...",
+  },
+  {
+    id: "auto-roulette-other",
+    category: "Automatic Roulette",
+    name: "Other",
+    requiresComment: true,
+    commentLabel: "What was done?",
+    commentPlaceholder: "Describe the Automatic Roulette work performed...",
   },
 ];
 
