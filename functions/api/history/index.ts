@@ -8,12 +8,14 @@ import type {
   HistoryListResponse,
   MaintenanceTask,
   ScheduledMaintenanceLog,
+  TemplateLogEntry,
 } from "../../../src/shared/types";
 import { errorResponse, isValidIsoDate, jsonResponse } from "../_lib/http";
 import {
   type Env,
   getMonthCompletions,
   KV_KEYS,
+  templateLogsMonthKey,
 } from "../_lib/kv";
 
 const VALID_CATEGORIES = new Set<HistoryCategory>([
@@ -21,6 +23,7 @@ const VALID_CATEGORIES = new Set<HistoryCategory>([
   "DAILY",
   "MAINTENANCE",
   "SCHEDULED",
+  "TEMPLATE",
 ]);
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -48,7 +51,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
   if (!VALID_CATEGORIES.has(categoryParam)) {
     return errorResponse(
-      "Invalid 'category'. Expected ALL, DAILY, MAINTENANCE, or SCHEDULED.",
+      "Invalid 'category'. Expected ALL, DAILY, MAINTENANCE, SCHEDULED, or TEMPLATE.",
       400
     );
   }
@@ -61,16 +64,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     categoryParam === "ALL" || categoryParam === "MAINTENANCE";
   const includeScheduled =
     categoryParam === "ALL" || categoryParam === "SCHEDULED";
+  const includeTemplate =
+    categoryParam === "ALL" || categoryParam === "TEMPLATE";
 
-  const [monthBatches, maintenanceTasks, scheduledLogs] = await Promise.all([
-    Promise.all(months.map((m) => getMonthCompletions(kv, m))),
-    includeMaintenance
-      ? kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json")
-      : Promise.resolve(null),
-    includeScheduled
-      ? kv.get<ScheduledMaintenanceLog[]>(KV_KEYS.scheduledLogs, "json")
-      : Promise.resolve(null),
-  ]);
+  const [monthBatches, maintenanceTasks, scheduledLogs, templateBatches] =
+    await Promise.all([
+      Promise.all(months.map((m) => getMonthCompletions(kv, m))),
+      includeMaintenance
+        ? kv.get<MaintenanceTask[]>(KV_KEYS.maintenanceTasks, "json")
+        : Promise.resolve(null),
+      includeScheduled
+        ? kv.get<ScheduledMaintenanceLog[]>(KV_KEYS.scheduledLogs, "json")
+        : Promise.resolve(null),
+      includeTemplate
+        ? Promise.all(
+            months.map(async (m) => {
+              const stored = await kv.get<TemplateLogEntry[]>(
+                templateLogsMonthKey(m),
+                "json"
+              );
+              return Array.isArray(stored) ? stored : [];
+            })
+          )
+        : Promise.resolve([]),
+    ]);
 
   const allCompletions = monthBatches.flat();
   const dailyCompletions = includeDaily
@@ -85,6 +102,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     maintenanceCompletions,
     maintenanceTasks: includeMaintenance ? (maintenanceTasks ?? []) : undefined,
     scheduledLogs: includeScheduled ? (scheduledLogs ?? []) : undefined,
+    templateLogs: includeTemplate ? templateBatches.flat() : undefined,
     filters: {
       from,
       to,

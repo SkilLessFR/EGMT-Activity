@@ -34,7 +34,7 @@ export interface MaintenanceTask {
   updatedAt: string; // ISO timestamp
 }
 
-export type TaskType = "DAILY" | "MAINTENANCE" | "SCHEDULED";
+export type TaskType = "DAILY" | "MAINTENANCE" | "SCHEDULED" | "TEMPLATE";
 
 export interface TaskCompletion {
   id: string;
@@ -100,7 +100,43 @@ export interface RosterData {
   rows: Record<string, Record<string, RosterShift>>;
 }
 
-export type HistoryCategory = "ALL" | "DAILY" | "MAINTENANCE" | "SCHEDULED";
+export type HistoryCategory = "ALL" | "DAILY" | "MAINTENANCE" | "SCHEDULED" | "TEMPLATE";
+
+export interface TemplateLogPhoto {
+  label: string;
+  dataUrl: string;
+}
+
+export interface TemplateLogEntry {
+  id: string;
+  templateId: string;
+  category: string;
+  optionName: string;
+  studio: string;
+  completedBy: string[];
+  oldSerialNumber?: string;
+  newSerialNumber?: string;
+  comment?: string;
+  photos?: TemplateLogPhoto[];
+  loggedDate: string; // YYYY-MM-DD (Bucharest)
+  loggedAt: string; // ISO timestamp
+}
+
+export interface CreateTemplateLogRequest {
+  templateId: string;
+  category: string;
+  optionName: string;
+  studio: string;
+  completedBy: string[];
+  oldSerialNumber?: string;
+  newSerialNumber?: string;
+  comment?: string;
+  photos?: TemplateLogPhoto[];
+}
+
+export interface TemplateLogResponse {
+  log: TemplateLogEntry;
+}
 
 export interface HistoryItem {
   id: string;
@@ -114,6 +150,7 @@ export interface HistoryItem {
   completedBy: string | null;
   completedAt: string | null; // ISO timestamp
   status: "Completed" | "Pending";
+  photos?: TemplateLogPhoto[];
 }
 
 // --- API Request / Response DTOs ---

@@ -10,6 +10,7 @@ import type {
   CreateMaintenanceTaskRequest,
   CreateScheduledItemRequest,
   CreateScheduledLogRequest,
+  CreateTemplateLogRequest,
   DailyTask,
   DailyTaskResponse,
   DeleteResponse,
@@ -30,6 +31,8 @@ import type {
   TaskComment,
   TaskCompletion,
   TasksListResponse,
+  TemplateLogEntry,
+  TemplateLogResponse,
   UpdateDailyTaskRequest,
   UpdateDowntimePhaseTeamRequest,
   UpdateDowntimeTaskRequest,
@@ -372,6 +375,16 @@ export async function createComment(payload: CreateCommentRequest): Promise<Task
     body: JSON.stringify(payload),
   });
   return data.comment;
+}
+
+export async function createTemplateLog(
+  payload: CreateTemplateLogRequest
+): Promise<TemplateLogEntry> {
+  const data = await requestJson<TemplateLogResponse>("/api/template-logs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return data.log;
 }
 
 export async function fetchScheduledMaintenance(): Promise<ScheduledMaintenanceListResponse> {

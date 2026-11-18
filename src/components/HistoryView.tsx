@@ -18,7 +18,13 @@ import {
   formatDisplayDate,
   getBucharestDate,
 } from "../shared/timezone";
-import type { HistoryCategory, HistoryItem, RosterData } from "../shared/types";
+import type {
+  HistoryCategory,
+  HistoryItem,
+  RosterData,
+  TemplateLogPhoto,
+} from "../shared/types";
+import { Modal } from "./ui/Modal";
 import {
   Button,
   EmptyState,
@@ -57,6 +63,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportingType, setExportingType] = useState<"daily" | "downtime" | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<TemplateLogPhoto | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!fromDate || !toDate) return;
@@ -183,6 +190,7 @@ export function HistoryView({ roster }: HistoryViewProps) {
                 { id: "DAILY", label: "Daily Tasks" },
                 { id: "MAINTENANCE", label: "Downtime" },
                 { id: "SCHEDULED", label: "Scheduled" },
+                { id: "TEMPLATE", label: "Templates" },
               ] as const
             ).map((opt) => (
               <button
@@ -382,10 +390,31 @@ export function HistoryView({ roster }: HistoryViewProps) {
                           ? "Daily"
                           : item.taskType === "SCHEDULED"
                             ? "Scheduled"
-                            : "Downtime"}
+                            : item.taskType === "TEMPLATE"
+                              ? "Template"
+                              : "Downtime"}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-zinc-100">
-                        {item.taskTitle}
+                        <div>{item.taskTitle}</div>
+                        {item.photos && item.photos.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {item.photos.map((photo, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setPreviewPhoto(photo)}
+                                className="inline-flex items-center gap-1 rounded border border-white/[0.1] bg-white/[0.03] px-1.5 py-0.5 text-[11px] font-normal text-zinc-300 hover:border-white/[0.25]"
+                              >
+                                <img
+                                  src={photo.dataUrl}
+                                  alt={photo.label}
+                                  className="h-5 w-5 rounded object-cover"
+                                />
+                                <span>{photo.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         {isCompleted ? (
@@ -429,7 +458,9 @@ export function HistoryView({ roster }: HistoryViewProps) {
                           ? "Daily"
                           : item.taskType === "SCHEDULED"
                             ? "Scheduled"
-                            : "Downtime"}
+                            : item.taskType === "TEMPLATE"
+                              ? "Template"
+                              : "Downtime"}
                       </span>
                     </div>
                     <StatusDot tone={isCompleted ? "emerald" : "neutral"}>
@@ -437,6 +468,25 @@ export function HistoryView({ roster }: HistoryViewProps) {
                     </StatusDot>
                   </div>
                   <div className="mt-1.5 text-sm font-medium text-zinc-100">{item.taskTitle}</div>
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {item.photos.map((photo, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setPreviewPhoto(photo)}
+                          className="inline-flex items-center gap-1 rounded border border-white/[0.1] bg-white/[0.03] px-1.5 py-0.5 text-[11px] text-zinc-300"
+                        >
+                          <img
+                            src={photo.dataUrl}
+                            alt={photo.label}
+                            className="h-5 w-5 rounded object-cover"
+                          />
+                          <span>{photo.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-1.5 flex items-center justify-between text-xs text-zinc-500">
                     <span className="text-zinc-300">{item.completedBy ?? "—"}</span>
                     <span className="font-mono tabular-nums">
@@ -449,6 +499,21 @@ export function HistoryView({ roster }: HistoryViewProps) {
           </div>
         </>
       )}
+
+      <Modal
+        isOpen={previewPhoto !== null}
+        onClose={() => setPreviewPhoto(null)}
+        title={previewPhoto?.label ?? "Attachment"}
+        maxWidthClass="max-w-3xl"
+      >
+        {previewPhoto && (
+          <img
+            src={previewPhoto.dataUrl}
+            alt={previewPhoto.label}
+            className="mx-auto max-h-[75vh] w-auto rounded-lg object-contain"
+          />
+        )}
+      </Modal>
     </div>
   );
 }

@@ -37,6 +37,10 @@ export function commentsMonthKey(monthKey: string): string {
   return `comments:month:${monthKey}`;
 }
 
+export function templateLogsMonthKey(monthKey: string): string {
+  return `templates:month:${monthKey}`;
+}
+
 export function dailyCompletionKey(
   monthKey: string,
   occurrenceId: string

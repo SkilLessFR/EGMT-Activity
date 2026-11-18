@@ -35,12 +35,14 @@ import {
   filterOccurrencesForCurrentShift,
   generateDailyOccurrences,
   getCurrentShiftWindow,
+  getEligibleEmployeesForDailyTask,
   getShiftStartTime,
   groupDailyOccurrences,
   inferDailyTaskCategory,
 } from "../domain/dailySchedule";
 import { generateScheduledDailyOccurrences } from "../domain/scheduledMaintenance";
 import { useRealtimeSync } from "../hooks/useRealtimeSync";
+import { TemplateLogModal } from "./TemplateLogModal";
 import {
   formatBucharestDateTime,
   formatDisplayDate,
@@ -940,6 +942,7 @@ export function DailyTasksView({
     Record<string, boolean>
   >({});
   const [formModalOpen, setFormModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
   const [shiftFilter, setShiftFilter] = useState<"M" | "A" | "N">(
@@ -1031,6 +1034,26 @@ export function DailyTasksView({
   const currentRoster = rosterCache[currentMonthKey] ?? null;
   const previousRoster =
     prevMonthKey === currentMonthKey ? currentRoster : (rosterCache[prevMonthKey] ?? null);
+
+  const shiftTechnicians = useMemo(() => {
+    const activeShift = shiftWindow.primaryShift;
+    const sampleTime =
+      activeShift === "M" ? "08:00" : activeShift === "A" ? "16:00" : "00:00";
+    return getEligibleEmployeesForDailyTask({
+      targetShift: activeShift,
+      scheduledDate: nowParts.date,
+      scheduledTime: sampleTime,
+      currentRoster: rosterCache[nowParts.date.slice(0, 7)] ?? currentRoster,
+      previousRoster,
+      previousDate: getPreviousCalendarDate(nowParts.date),
+    });
+  }, [
+    shiftWindow.primaryShift,
+    nowParts.date,
+    rosterCache,
+    currentRoster,
+    previousRoster,
+  ]);
 
   const dayOccurrences = useMemo(() => {
     const daily = generateDailyOccurrences({
@@ -1534,13 +1557,10 @@ export function DailyTasksView({
 
           <Button
             variant="primary"
-            onClick={() => {
-              setEditingTask(null);
-              setFormModalOpen(true);
-            }}
+            onClick={() => setTemplateModalOpen(true)}
           >
             <Plus className="h-4 w-4" />
-            <span>Add Task</span>
+            <span>Create from Template</span>
           </Button>
         </div>
       </div>
@@ -1755,21 +1775,15 @@ export function DailyTasksView({
               )}
             </>
           )}
-          <div className="flex justify-end border-t border-white/[0.06] pt-3">
-            <Button
-              variant="primary"
-              onClick={() => {
-                setManageModalOpen(false);
-                setEditingTask(null);
-                setFormModalOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              New Daily Task
-            </Button>
-          </div>
         </div>
       </Modal>
+
+      <TemplateLogModal
+        isOpen={templateModalOpen}
+        shiftEmployees={shiftTechnicians}
+        shiftLabel={`Shift ${shiftWindow.primaryShift}`}
+        onClose={() => setTemplateModalOpen(false)}
+      />
 
       <TaskFormModal
         isOpen={formModalOpen}

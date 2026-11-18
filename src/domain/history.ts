@@ -3,6 +3,7 @@ import {
   formatBucharestDateTime,
   formatDisplayDate,
   getBucharestDate,
+  getBucharestTime,
   getMonthsInRange,
   parseMonthKey,
 } from "../shared/timezone";
@@ -13,6 +14,7 @@ import type {
   MaintenanceWindow,
   ScheduledMaintenanceLog,
   TaskCompletion,
+  TemplateLogEntry,
 } from "../shared/types";
 
 export interface HistoryFilterOptions {
@@ -29,6 +31,7 @@ export interface BuildHistoryInput {
   maintenanceCompletions: TaskCompletion[];
   maintenanceTasks?: MaintenanceTask[];
   scheduledLogs?: ScheduledMaintenanceLog[];
+  templateLogs?: TemplateLogEntry[];
   filters: HistoryFilterOptions;
 }
 
@@ -279,6 +282,7 @@ export function buildUnifiedHistory(input: BuildHistoryInput): HistoryItem[] {
     maintenanceCompletions,
     maintenanceTasks,
     scheduledLogs,
+    templateLogs,
     filters,
   } = input;
   const category = filters.category ?? "ALL";
@@ -329,6 +333,34 @@ export function buildUnifiedHistory(input: BuildHistoryInput): HistoryItem[] {
         completedBy: log.changedBy,
         completedAt: log.changedAt,
         status: "Completed",
+      });
+    }
+  }
+
+  if (
+    (category === "ALL" || category === "TEMPLATE") &&
+    Array.isArray(templateLogs)
+  ) {
+    for (const entry of templateLogs) {
+      const snPart =
+        entry.oldSerialNumber || entry.newSerialNumber
+          ? ` · Old SN: ${entry.oldSerialNumber ?? "—"} → New SN: ${entry.newSerialNumber ?? "—"}`
+          : "";
+      const commentPart = entry.comment ? ` · ${entry.comment}` : "";
+      items.push({
+        id: entry.id,
+        occurrenceId: entry.id,
+        taskId: entry.templateId,
+        taskType: "TEMPLATE",
+        taskTitle: `${entry.category} · ${entry.optionName} (Studio ${entry.studio})${snPart}${commentPart}`,
+        scheduledDate: entry.loggedDate,
+        scheduledTime: getBucharestTime(new Date(entry.loggedAt)),
+        completedBy: entry.completedBy.join(", "),
+        completedAt: entry.loggedAt,
+        status: "Completed",
+        ...(entry.photos && entry.photos.length > 0
+          ? { photos: entry.photos }
+          : {}),
       });
     }
   }
